@@ -1,0 +1,40 @@
+{
+  "db": {
+    "name": "db",
+    "connector": "memory"
+  },
+  "topRamenMongoDb": {
+    "host": "localhost",
+    "port": 27017,
+    "url": "",
+    "database": "topRamen",
+    "name": "topRamenMongoDb",
+    "connector": "mongodb",
+    "user": "",
+    "password": ""
+  },
+  "topRamenEmailDataSource": {
+    "connector": "mail",
+    "name": "topRamenEmailDataSource",
+    "defaultForType": "mail",
+    "transports": [
+      {
+        "type": "SMTP",
+        "host": "smtp.gmail.com",
+        "secure": true,
+        "port": 465,
+        "auth": {
+          "user": "toeknee@toeknee.io",
+          "pass": "08Musof!"
+        }
+      }
+    ]
+  },
+  "topRamenPushDataSource": {
+    "name": "topRamenPushDataSource",
+    "connector": "loopback-component-push",
+    "installation": "installation",
+    "notification": "notification",
+    "application": "application"
+  }
+}

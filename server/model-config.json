@@ -1,0 +1,59 @@
+{
+  "_meta": {
+    "sources": [
+      "../common/models",
+      "../node_modules/loopback-component-passport/lib/models",
+      "../node_modules/loopback-component-push/models"
+    ],
+    "mixins": [
+      "../common/mixins"
+    ]
+  },
+  "user": {
+    "dataSource": "topRamenMongoDb",
+    "public": true,
+    "options": {
+      "emailVerificationRequired": true
+    }
+  },
+  "score": {
+    "dataSource": "topRamenMongoDb",
+    "public": true
+  },
+  "device": {
+    "dataSource": "topRamenMongoDb",
+    "public": false
+  },
+  "accessToken": {
+    "dataSource": "topRamenMongoDb",
+    "public": false
+  },
+  "userCredential": {
+    "dataSource": "topRamenMongoDb",
+    "public": false
+  },
+  "userIdentity": {
+    "dataSource": "topRamenMongoDb",
+    "public": false
+  },
+    "push": {
+    "dataSource": "topRamenPushDataSource",
+    "public": true
+  },
+  "ACL": {
+    "dataSource": "db",
+    "public": false
+  },
+  "RoleMapping": {
+    "dataSource": "db",
+    "public": false
+  },
+  "Role": {
+    "dataSource": "db",
+    "public": false
+  },
+  "Email": {
+    "dataSource": "topRamenEmailDataSource",
+    "public": false
+  }
+}
