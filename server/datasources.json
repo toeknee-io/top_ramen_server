@@ -1,21 +1,27 @@
 {
   "db": {
+    "host": "localhost",
+    "port": 27017,
+    "url": "",
+    "database": "topRamen",
+    "password": "",
     "name": "db",
-    "connector": "memory"
+    "connector": "mongodb",
+    "user": ""
   },
   "topRamenMongoDb": {
     "host": "localhost",
     "port": 27017,
     "url": "",
     "database": "topRamen",
+    "password": "",
     "name": "topRamenMongoDb",
     "connector": "mongodb",
-    "user": "",
-    "password": ""
+    "user": ""
   },
   "topRamenEmailDataSource": {
-    "connector": "mail",
     "name": "topRamenEmailDataSource",
+    "connector": "mail",
     "defaultForType": "mail",
     "transports": [
       {
@@ -30,8 +36,8 @@
       }
     ]
   },
-  "topRamenPushDataSource": {
-    "name": "topRamenPushDataSource",
+  "topRamenPushProvider": {
+    "name": "topRamenPushProvider",
     "connector": "loopback-component-push",
     "installation": "installation",
     "notification": "notification",

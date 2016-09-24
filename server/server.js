@@ -1,5 +1,7 @@
 'use strict';
 
+var path = require('path');
+
 var loopback = require('loopback');
 var boot = require('loopback-boot');
 var app = module.exports = loopback();
@@ -9,12 +11,10 @@ var PassportConfigurator = loopbackPassport.PassportConfigurator;
 var passportConfigurator = new PassportConfigurator(app);
 
 var ensureLoggedIn = require('connect-ensure-login').ensureLoggedIn;
-var flash = require('express-flash');
+
 var bodyParser = require('body-parser');
 var cookieParser = require('cookie-parser');
 var expressSession = require('express-session');
-
-var path = require('path');
 
 app.set('views', path.join(__dirname, '..', 'client', 'views'));
 app.set('view engine', 'pug');
@@ -26,6 +26,7 @@ boot(app, bootOptions, function(err) {
   if (err) throw err;
 });
 
+// setup middleware for request parsing and auth/session handling
 app.middleware('parse', bodyParser.json());
 app.middleware('parse', bodyParser.urlencoded({
   extended: true,
@@ -43,43 +44,65 @@ app.middleware('session', expressSession({
   resave: true,
 }));
 
-// providers/passport config
-var config = {};
-try {
-  config = require('/home/ubuntu/top_ramen/providers.json');
-} catch (err) {
-    logger.error(err);
-    process.exit(1);
-}
-
-passportConfigurator.init();
-
-// see passport errors
-app.use(flash());
-
-passportConfigurator.init();
-
-passportConfigurator.setupModels({
-  userModel: app.models.user,
-  userIdentityModel: app.models.userIdentity,
-  userCredentialModel: app.models.userCredential
-});
-
-for (var s in config) {
-  var c = config[s];
-  c.session = c.session !== false;
-  passportConfigurator.configureProvider(s, c);
-}
+// initialize login through passport
+require('./init-passport')(app, passportConfigurator);
 
 app.get('/signup', function(req, res) {
   res.render('pages/signup');
 });
 
 app.get('/auth/account', ensureLoggedIn('/login'), function(req, res, next) {
-  res.render('pages/loginProfiles', {
-    user: req.user,
-    url: req.url,
-  });
+
+  if (req.session.device && req.session.device.uuid
+    && req.session.passport && req.session.passport.user)
+  {
+
+    app.models.device.findOrCreate( { where: { deviceId: req.session.device.uuid } }, { deviceId: req.session.device.uuid, userId: req.session.passport.user }, function(err, device, created) {
+
+      if (err) {
+
+        console.error(err);
+
+        res.send('<h1>blaargh on device findOrCreate</h1>');
+
+      }
+
+      else if (created) console.log(`created new device record: deviceId [${device.deviceId}] userId [${device.userId}]`);
+      else console.log(`device record already exists: deviceId [${device.deviceId}] userId [${device.userId}]`);
+
+      app.models.accessToken.findOne( { where: { userId: device.userId }, order: 'created DESC' }, function(err, model) {
+
+        if (err || !model) {
+
+          if (err) console.error(err);
+
+          if (!model) return console.log(`could not find accessToken for userId [${device.userId}]`);
+
+          res.send('<h1>blaargh on accessToken findOne</h1>');
+
+        }
+
+        console.log(`model.id: ${model.id}`);
+
+        res.setHeader("Set-Cookie",`access_token=${model.id}`);
+
+        res.render('pages/loginProfiles', {
+          user: req.user,
+          url: req.url,
+        });
+
+      });
+
+    });
+
+  } else {
+
+    console.error('No device or user found in session');
+
+    res.send('<h1>blaargh no device or user found in session</h1>');
+
+  }
+
 });
 
 app.get('/local', function(req, res, next) {
@@ -90,6 +113,7 @@ app.get('/local', function(req, res, next) {
 });
 
 app.post('/signup', function(req, res, next) {
+
   var User = app.models.user;
 
   var newUser = {};
@@ -98,10 +122,12 @@ app.post('/signup', function(req, res, next) {
   newUser.password = req.body.password;
 
   User.create(newUser, function(err, user) {
+
     if (err) {
       req.flash('error', err.message);
       return res.redirect('back');
     } else {
+
         req.login(user, function(err) {
           if (err) {
             req.flash('error', err.message);
@@ -138,8 +164,11 @@ app.post('/signup', function(req, res, next) {
             redirectToLinkText: 'Log in'
           });
         });
+
     }
+
   });
+
 });
 
 app.get('/login', function(req, res) {
@@ -158,6 +187,22 @@ app.post('/reset-password', ensureLoggedIn('/login'), function(req, res, next) {
 app.get('/reset-password', function(req, res, next) {
   app.models.user.emit('resetPasswordRequest', req.user);
   res.send('pw reset email sent');
+});
+
+app.get('/mobile/redirect/auth/:provider', function(req, res, next) {
+
+  let provider = req.params.provider;
+
+  if (!req.session.device)
+    req.session.device = {};
+
+  if (provider !== 'local')
+    provider = 'auth/' + provider;
+
+  req.session.device.uuid = req.query.uuid;
+
+  res.redirect('/' + provider);
+
 });
 
 app.start = function() {

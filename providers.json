@@ -17,9 +17,9 @@
     "callbackURL": "/auth/facebook/callback",
     "authPath": "/auth/facebook",
     "callbackPath": "/auth/facebook/callback",
-    "successRedirect": "/auth/account",
+    "successRedirect": "/auth/account?splash=false",
     "failureRedirect": "/login",
-    "scope": ["email"],
+    "scope": ["email", "user_friends", "public_profile"],
     "failureFlash": true
   },
   "google-login": {
@@ -31,9 +31,9 @@
     "callbackURL": "/auth/google/callback",
     "authPath": "/auth/google",
     "callbackPath": "/auth/google/callback",
-    "successRedirect": "/auth/account",
+    "successRedirect": "/auth/account?splash=false",
     "failureRedirect": "/login",
-    "scope": ["email", "profile"],
+    "scope": ["email", "profile", "https://www.googleapis.com/auth/plus.login", "https://www.googleapis.com/auth/contacts", "https://www.googleapis.com/auth/plus.me", "https://www.googleapis.com/auth/plus.circles.read"],
     "failureFlash": true
   },
   "twitter-login": {
@@ -43,7 +43,7 @@
     "callbackURL": "/auth/twitter/callback",
     "authPath": "/auth/twitter",
     "callbackPath": "/auth/twitter/callback",
-    "successRedirect": "/auth/account",
+    "successRedirect": "/auth/account?splash=false",
     "failureRedirect": "/login",
     "consumerKey": "{twitter-consumer-key}",
     "consumerSecret": "{twitter-consumer-secret}",

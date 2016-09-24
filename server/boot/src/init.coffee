@@ -1,6 +1,5 @@
 winston = require('winston')
 path = require('path')
-conf = 'derp'
 
 module.exports = (app) ->
 
@@ -16,5 +15,3 @@ module.exports = (app) ->
       new (winston.transports.File)( filename: "#{logDir}/winston.log" )
     ]
   )
-
-  logger.info("booting init")

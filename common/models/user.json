@@ -24,6 +24,21 @@
       "type": "hasMany",
       "model": "score",
       "foreignKey": "userId"
+    },
+    "devices": {
+      "type": "hasMany",
+      "model": "device",
+      "foreignKey": "userId"
+    },
+    "installations": {
+      "type": "hasMany",
+      "model": "installation",
+      "foreignKey": "userId"
+    },
+    "challenges": {
+      "type": "hasMany",
+      "model": "challenge",
+      "foreignKey": ""
     }
   },
   "acls": [],
