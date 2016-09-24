@@ -1,0 +1,31 @@
+{
+  "name": "challenge",
+  "plural": "challenges",
+  "base": "PersistedModel",
+  "idInjection": true,
+  "options": {
+    "validateUpsert": true
+  },
+  "properties": {
+    "challenger": {
+      "type": "object",
+      "required": true
+    },
+    "challenged": {
+      "type": "object",
+      "required": true
+    },
+    "status": {
+      "type": "string",
+      "required": true,
+      "default": "new"
+    },
+    "winner": {
+      "type": "string"
+    }
+  },
+  "validations": [],
+  "relations": {},
+  "acls": [],
+  "methods": {}
+}
