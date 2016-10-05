@@ -2,11 +2,16 @@
   "name": "application",
   "plural": "applications",
   "base": "Application",
-  "idInjection": true,
+  "idInjection": false,
   "options": {
     "validateUpsert": true
   },
-  "properties": {},
+  "properties": {
+    "name": {
+      "type": "string",
+      "id": true
+     }
+  },
   "validations": [],
   "relations": {},
   "acls": [],

@@ -8,12 +8,22 @@
   },
   "properties": {
     "challenger": {
-      "type": "object",
-      "required": true
+      "userId": {
+        "type": "string",
+        "required": true
+      },
+      "score": {
+        "type": "number"
+      }
     },
     "challenged": {
-      "type": "object",
-      "required": true
+      "userId": {
+        "type": "string",
+        "required": true
+      },
+      "score": {
+        "type": "number"
+      }
     },
     "status": {
       "type": "string",

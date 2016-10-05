@@ -82,7 +82,7 @@ app.get('/auth/account', ensureLoggedIn('/login'), function(req, res, next) {
 
         }
 
-        console.log(`model.id: ${model.id}`);
+        console.log(`accessToken.id: ${model.id}`);
 
         res.setHeader("Set-Cookie",`access_token=${model.id}`);
 

@@ -44,10 +44,40 @@ module.exports = function(Challenge) {
 
       data.status = rScore && dScore ? 'finished' : 'started';
 
-      if (data.status === 'finished')
+      if (data.status === 'finished') {
+
         data.winner = ( rScore > dScore ? data.challenger.userId : (rScore === dScore ? 'tied' : data.challenged.userId) );
-      else
+
+        app.models.userIdentity.findOne( { where: { userId: data.challenger.userId } }, function(err, rModel) {
+          if (err) console.error(err);
+          let rName = rModel.profile.displayName.split(/\s/)[0];
+
+          app.models.userIdentity.findOne( { where: { userId: data.challenged.userId } }, function(err, dModel) {
+            let dName = dModel.profile.displayName.split(/\s/)[0];
+            let title = `\uD83C\uDFC6 Noodeul Completed \uD83C\uDFC6`
+            app.models.notification.notify(data.challenger.userId,
+              {
+                alert: {
+                  title: title,
+                  body: `You ${data.winner === 'tied' ? 'Tied' : (data.winner === data.challenger.userId ? 'Beat' : 'Lost to')} ${dName} ${rScore} to ${dScore}`
+                }
+              }
+            );
+            app.models.notification.notify(data.challenged.userId,
+              {
+                alert: {
+                  title: title,
+                  body: `You ${data.winner === 'tied' ? 'Tied' : (data.winner === data.challenged.userId ? 'Beat' : 'Lost to')} ${rName} ${dScore} to ${rScore}`
+                }
+              }
+            );
+          });
+
+        });
+
+      } else {
         data.winner = null;
+      }
 
       ctx.args.data = data;
 
@@ -57,12 +87,27 @@ module.exports = function(Challenge) {
 
   });
 
+  Challenge.beforeRemote('create', function(ctx, unused, next) {
+
+    let rUserId = ctx.req.body.challenger.userId;
+    let dUserId = ctx.req.body.challenged.userId;
+
+    Challenge.find({ where: { and: [ { status: { neq: "finished" } }, { "challenger.userId": rUserId }, { "challenged.userId": dUserId } ] } }, function(err, result) {
+      if (err) return next(err);
+      if (result) {
+        err = new Error("These users have an unfinished challenge")
+        err.status = 403;
+        delete err.stack;
+        return next(err);
+      }
+      else return next();
+    });
+
+  });
+
   Challenge.afterRemote('create', function(ctx, challenge, next) {
 
-    console.dir(challenge);
-    console.dir(ctx.req);
-
-    let userId = challenge.challenger.userId;
+    let userId = challenge.__data.challenger.userId;
 
     if (!userId) return next(new Error('Could not find challenged.userId in request'));
 
