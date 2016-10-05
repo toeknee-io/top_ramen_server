@@ -74,7 +74,7 @@ module.exports = function(Challenge) {
           });
 
         });
-
+// test
       } else {
         data.winner = null;
       }
