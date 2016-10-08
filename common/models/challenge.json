@@ -12,8 +12,11 @@
         "type": "string",
         "required": true
       },
+      "identities": "array",
       "score": {
-        "type": "number"
+        "type": "number",
+        "required": true,
+        "default": null
       }
     },
     "challenged": {
@@ -21,8 +24,11 @@
         "type": "string",
         "required": true
       },
+      "identities": "array",
       "score": {
-        "type": "number"
+        "type": "number",
+        "required": true,
+        "default": null
       }
     },
     "status": {
@@ -32,6 +38,10 @@
     },
     "winner": {
       "type": "string"
+    },
+    "created": {
+      "defaultFn": "now",
+      "type": "date"
     }
   },
   "validations": [],

@@ -1,8 +1,91 @@
 'use strict';
 
-let app = require('../../server/server');
+const path = require('path');
+
+const app = require(path.join('..', '..', 'server', 'server'));
+
+const mc = app._ramen.memcached;
+const Promise = app._ramen.promise;
+const _ = app._ramen.lodash;
+
+function setIdentity(body, userId, rOrD) {
+  return new Promise(function (resolve, reject) {
+
+    const CACHE_KEY = `identities:${userId}`;
+
+    mc.get(CACHE_KEY, function(err, data) {
+
+      if (err) console.error(err);
+
+      if (data) {
+        console.log(`${CACHE_KEY} cached`);
+        body[rOrD].identities = data;
+        resolve(body);
+      } else {
+        app.models.user.findById(userId, { include: ['identities'] }, function(err, user) {
+          console.log(`${CACHE_KEY} NOT cached`);
+          if (err) return reject(err);
+          body[rOrD].identities = user.__data.identities;
+          mc.set(CACHE_KEY, user.__data.identities, 2592000, (err) => { if (err) return console.error(err); } );
+          resolve(body);
+        });
+      }
+
+    });
+
+  });
+}
 
 module.exports = function(Challenge) {
+
+  Challenge.beforeRemote('create', function(ctx, challenge, next) {
+
+    let rUserId = ctx.req.body.challenger.userId;
+    let dUserId = ctx.req.body.challenged.userId;
+    /*
+    Challenge.find({ where: { and: [ { status: { neq: "finished" } }, { "challenger.userId": rUserId }, { "challenged.userId": dUserId } ] } }, function(err, result) {
+      if (err) return next(err);
+      if (result) {
+        err = new Error("These users have an unfinished challenge")
+        err.status = 403;
+        delete err.stack;
+        return next(err);
+      }
+      else return next();
+    });
+    */
+    setIdentity(ctx.req.body, rUserId, 'challenger')
+      .then(body => setIdentity(body, dUserId, 'challenged'))
+      .then(() => next())
+      .catch(err => next(err));
+
+  });
+
+  Challenge.afterRemote('create', function(ctx, challenge, next) {
+
+    let userId = challenge.__data.challenger.userId;
+
+    if (!userId) return next(new Error('Could not find challenged.userId in request'));
+
+    app.models.user.findById(userId, function(err, model) {
+
+      if (err) {
+        console.error(err);
+        next(err);
+      }
+
+      let challenger = model.firstName;
+
+      app.models.notification.notify(challenge.challenged.userId,
+        { alert: { title: `${challenger} Challenges You!`, body: "\uD83C\uDF72 To A Nooduel! \uD83C\uDF5C" } }
+      );
+
+      next();
+
+    });
+
+  });
+
 
   Challenge.beforeRemote('prototype.updateAttributes', function(ctx, challenge, next) {
 
@@ -23,7 +106,7 @@ module.exports = function(Challenge) {
 
       if (data.status === 'finished') {
         err = new Error('A finished challenge cannot be updated.');
-        err.status = 400;
+        err.status = 403;
         delete err.stack;
         next(err);
       }
@@ -34,7 +117,7 @@ module.exports = function(Challenge) {
         data[player].score = score;
       } else {
         err = new Error('This player has already played in this challenge.');
-        err.status = 400;
+        err.status = 403;
         delete err.stack;
         next(err);
       }
@@ -48,13 +131,14 @@ module.exports = function(Challenge) {
 
         data.winner = ( rScore > dScore ? data.challenger.userId : (rScore === dScore ? 'tied' : data.challenged.userId) );
 
-        app.models.userIdentity.findOne( { where: { userId: data.challenger.userId } }, function(err, rModel) {
-          if (err) console.error(err);
-          let rName = rModel.profile.displayName.split(/\s/)[0];
+        app.models.user.findById(data.challenger.userId, function(err, rModel) {
+          if (err) return console.error(err);
+          let rName = rModel.firstName;
 
-          app.models.userIdentity.findOne( { where: { userId: data.challenged.userId } }, function(err, dModel) {
-            let dName = dModel.profile.displayName.split(/\s/)[0];
-            let title = `\uD83C\uDFC6 Noodeul Completed \uD83C\uDFC6`
+          app.models.user.findById(data.challenged.userId, function(err, dModel) {
+            if (err) return console.error(err);
+            let dName = dModel.firstName;
+            let title = `\uD83C\uDFC6 Nooduel Completed \uD83C\uDFC6`
             app.models.notification.notify(data.challenger.userId,
               {
                 alert: {
@@ -87,47 +171,52 @@ module.exports = function(Challenge) {
 
   });
 
-  Challenge.beforeRemote('create', function(ctx, unused, next) {
+  Challenge.sort = function(userId, cb) {
 
-    let rUserId = ctx.req.body.challenger.userId;
-    let dUserId = ctx.req.body.challenged.userId;
+    if (!cb) cb = () => null
 
-    Challenge.find({ where: { and: [ { status: { neq: "finished" } }, { "challenger.userId": rUserId }, { "challenged.userId": dUserId } ] } }, function(err, result) {
-      if (err) return next(err);
-      if (result) {
-        err = new Error("These users have an unfinished challenge")
-        err.status = 403;
-        delete err.stack;
-        return next(err);
-      }
-      else return next();
-    });
-
-  });
-
-  Challenge.afterRemote('create', function(ctx, challenge, next) {
-
-    let userId = challenge.__data.challenger.userId;
-
-    if (!userId) return next(new Error('Could not find challenged.userId in request'));
-
-    app.models.userIdentity.findOne( { where: { userId: userId } }, function(err, model) {
+    Challenge.find({ where: { or: [ { "challenger.userId": userId }, { 'challenged.userId': userId } ] } }, function(err, challenges) {
 
       if (err) {
         console.error(err);
-        next(err);
+        return cb(err, null);
       }
 
-      let challenger = model.profile.displayName;
+      let results = {};
 
-      app.models.notification.notify(challenge.challenged.userId,
-        { alert: { title: `${challenger} Challenges You!`, body: "\uD83C\uDF72 To A Noodeul! \uD83C\uDF5C" } }
-      );
+      results.finished = _.remove(challenges, challenge => challenge.__data.status === 'finished');
+      results.open = challenges;
 
-      next();
+      cb(null, results);
 
     });
 
-  });
+  };
+
+  Challenge.remoteMethod(
+    'sort',
+    {
+      description: "Find all of the user's challenges and sort them by status.",
+      http: {
+        verb: "get",
+        status: 200,
+        path: "/sort/:userId/"
+      },
+      accepts: [
+        {
+          arg: 'userId',
+          type: 'string',
+          http: {
+            source: 'path'
+          },
+          required: true
+        }
+      ],
+      returns: {
+        type: Object,
+        root: true
+      }
+    }
+  );
 
 };

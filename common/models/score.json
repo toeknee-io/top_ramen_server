@@ -10,6 +10,10 @@
     "score": {
       "type": "number",
       "required": true
+    },
+    "created": {
+      "defaultFn": "now",
+      "type": "date"
     }
   },
   "validations": [],

@@ -5,7 +5,12 @@
   "options": {
     "validateUpsert": true
   },
-  "properties": {},
+  "properties": {
+    "created": {
+      "defaultFn": "now",
+      "type": "date"
+    }
+  },
   "validations": [],
   "relations": {},
   "acls": [],

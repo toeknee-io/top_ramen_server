@@ -1,55 +1,44 @@
 'use strict';
 
-var path = require('path');
+const path = require('path');
 
-var loopback = require('loopback');
-var boot = require('loopback-boot');
-var app = module.exports = loopback();
+const loopback = require('loopback');
+const boot = require('loopback-boot');
+const app = module.exports = require(path.join(__dirname, 'lib', 'init-ramen'))(loopback());
 
-var loopbackPassport = require('loopback-component-passport');
-var PassportConfigurator = loopbackPassport.PassportConfigurator;
-var passportConfigurator = new PassportConfigurator(app);
+const loopbackPassport = require('loopback-component-passport');
+const PassportConfigurator = loopbackPassport.PassportConfigurator;
+const passportConfigurator = new PassportConfigurator(app);
 
-var ensureLoggedIn = require('connect-ensure-login').ensureLoggedIn;
+const ensureLoggedIn = require('connect-ensure-login').ensureLoggedIn;
 
-var bodyParser = require('body-parser');
-var cookieParser = require('cookie-parser');
-var expressSession = require('express-session');
+const bodyParser = require('body-parser');
+const cookieParser = require('cookie-parser');
+const expressSession = require('express-session');
 
 app.set('views', path.join(__dirname, '..', 'client', 'views'));
 app.set('view engine', 'pug');
 
-const bootOptions = { "appRootDir": __dirname,
-                "bootScripts" : [ path.join(__dirname, 'boot', 'init.js') ] };
-
-boot(app, bootOptions, function(err) {
-  if (err) throw err;
-});
+boot(app, __dirname, err => { if (err) throw err; });
 
 // setup middleware for request parsing and auth/session handling
 app.middleware('parse', bodyParser.json());
-app.middleware('parse', bodyParser.urlencoded({
-  extended: true,
-}));
+app.middleware('parse', bodyParser.urlencoded({ extended: true }));
 
 // access token is only available after boot
-app.middleware('auth', loopback.token({
-  model: app.models.accessToken,
-}));
+app.middleware('auth', loopback.token({ model: app.models.accessToken }));
 
 app.middleware('session:before', cookieParser(app.get('cookieSecret')));
 app.middleware('session', expressSession({
   secret: 'kitty',
   saveUninitialized: true,
-  resave: true,
+  resave: true
 }));
 
 // initialize login through passport
-require('./init-passport')(app, passportConfigurator);
+require(path.join(__dirname, 'lib', './init-passport'))(app, passportConfigurator);
 
-app.get('/signup', function(req, res) {
-  res.render('pages/signup');
-});
+app.get('/signup', (req, res) => res.render('pages/signup'));
 
 app.get('/auth/account', ensureLoggedIn('/login'), function(req, res, next) {
 
@@ -57,7 +46,7 @@ app.get('/auth/account', ensureLoggedIn('/login'), function(req, res, next) {
     && req.session.passport && req.session.passport.user)
   {
 
-    app.models.device.findOrCreate( { where: { deviceId: req.session.device.uuid } }, { deviceId: req.session.device.uuid, userId: req.session.passport.user }, function(err, device, created) {
+    app.models.device.findOrCreate( { where: { deviceId: req.session.device.uuid } }, { deviceId: req.session.device.uuid, userId: req.session.passport.user, deviceType: req.session.device.deviceType }, function(err, device, created) {
 
       if (err) {
 
@@ -76,9 +65,9 @@ app.get('/auth/account', ensureLoggedIn('/login'), function(req, res, next) {
 
           if (err) console.error(err);
 
-          if (!model) return console.log(`could not find accessToken for userId [${device.userId}]`);
+          if (!model) console.log(`could not find accessToken for userId [${device.userId}]`);
 
-          res.send('<h1>blaargh on accessToken findOne</h1>');
+          return res.send('<h1>blaargh on accessToken findOne</h1>');
 
         }
 
@@ -88,7 +77,7 @@ app.get('/auth/account', ensureLoggedIn('/login'), function(req, res, next) {
 
         res.render('pages/loginProfiles', {
           user: req.user,
-          url: req.url,
+          url: req.url
         });
 
       });
@@ -105,18 +94,18 @@ app.get('/auth/account', ensureLoggedIn('/login'), function(req, res, next) {
 
 });
 
-app.get('/local', function(req, res, next) {
+app.get('/local', function(req, res) {
   res.render('pages/local', {
     user: req.user,
-    url: req.url,
+    url: req.url
   });
 });
 
 app.post('/signup', function(req, res, next) {
 
-  var User = app.models.user;
+  let User = app.models.user;
 
-  var newUser = {};
+  let newUser = {};
   newUser.email = req.body.email.toLowerCase();
   newUser.username = req.body.username.trim();
   newUser.password = req.body.password;
@@ -138,7 +127,7 @@ app.post('/signup', function(req, res, next) {
 
         console.log('/signup email triggered');
 
-        var options = {
+        let options = {
           type: 'email',
           to: user.email,
           from: 'noreply@topramen.com',
@@ -171,17 +160,16 @@ app.post('/signup', function(req, res, next) {
 
 });
 
-app.get('/login', function(req, res) {
-  res.render('pages/login');
-});
+app.get('/login', (req, res) => res.render('pages/login'));
 
 app.get('/auth/logout', function(req, res, next) {
   req.logout();
   res.redirect('/');
 });
 
-app.post('/reset-password', ensureLoggedIn('/login'), function(req, res, next) {
+app.post('/reset-password', ensureLoggedIn('/login'), (req, res, next) => {
   app.models.user.emit('resetPasswordRequest', req.user);
+  next();
 });
 
 app.get('/reset-password', function(req, res, next) {
@@ -200,6 +188,7 @@ app.get('/mobile/redirect/auth/:provider', function(req, res, next) {
     provider = 'auth/' + provider;
 
   req.session.device.uuid = req.query.uuid;
+  req.session.device.deviceType = req.query.deviceType;
 
   res.redirect('/' + provider);
 
@@ -208,11 +197,11 @@ app.get('/mobile/redirect/auth/:provider', function(req, res, next) {
 app.start = function() {
   return app.listen(function() {
     app.emit('started');
-    var baseUrl = app.get('url').replace(/\/$/, '');
-    logger.info('Web server listening at: %s', baseUrl);
+    let baseUrl = app.get('url').replace(/\/$/, '');
+    console.log('Web server listening at: %s', baseUrl);
     if (app.get('loopback-component-explorer')) {
-      var explorerPath = app.get('loopback-component-explorer').mountPath;
-      logger.info('Browse your REST API at %s%s', baseUrl, explorerPath);
+      let explorerPath = app.get('loopback-component-explorer').mountPath;
+      console.log('Browse your REST API at %s%s', baseUrl, explorerPath);
     }
   });
 };

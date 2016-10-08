@@ -18,25 +18,31 @@ module.exports = function(notification) {
           return cb(err, null);
         }
 
-        let installObj = user.__data.installations[0];
+        user.__data.installations.forEach( function(installation) {
 
-        let note = new app.models.notification({
-          expirationInterval: 86400, // Expire time in seconds (1 day)
-          deviceType: installObj.deviceType,
-          deviceToken: installObj.deviceToken,
-          title: data.alert.title,
-          body: data.alert.body,
-          click_action: "MAIN"
-        });
+          if (installation.status === 'Active') {
 
-        console.log(`pushing notification { ${data.alert.title}: ${data.alert.body} } to [${userId}]`);
+            let note = new app.models.notification({
+              expirationInterval: 86400, // Expire time in seconds (1 day)
+              deviceType: installation.deviceType,
+              deviceToken: installation.deviceToken,
+              title: data.alert.title,
+              body: data.alert.body,
+              click_action: "MAIN"
+            });
 
-        app.models.push.notifyById(installObj.id, note, function(err) {
-          if (err) {
-            console.error(err);
-            return cb(err, null);
+            console.log(`pushing notification { ${data.alert.title}: ${data.alert.body} } to [${userId}]`);
+
+            app.models.push.notifyById(installation.id, note, function(err) {
+              if (err) {
+                console.error(err);
+                return cb(err, null);
+              }
+              return cb(null, data);
+            });
+
           }
-          return cb(null, data);
+
         });
 
       });
@@ -44,37 +50,37 @@ module.exports = function(notification) {
     }
 
     notification.remoteMethod(
-        'notify',
-        {
-          description: "Send a notification to a device",
-          http: {
-            verb: "post",
-            status: 201,
-            path: "/:userId/notify"
-          },
-          accepts: [
-            {
-              arg: 'userId',
-              type: 'string',
-              http: {
-                source: 'path'
-              },
-              required: true
+      'notify',
+      {
+        description: "Send a notification to a device",
+        http: {
+          verb: "post",
+          status: 201,
+          path: "/:userId/notify"
+        },
+        accepts: [
+          {
+            arg: 'userId',
+            type: 'string',
+            http: {
+              source: 'path'
             },
-            {
-              arg: 'data',
-              type: 'notification',
-              http: {
-                source: 'body'
-              },
-              required: true
-            }
-          ],
-          returns: {
+            required: true
+          },
+          {
+            arg: 'data',
             type: 'notification',
-            root: true
+            http: {
+              source: 'body'
+            },
+            required: true
           }
+        ],
+        returns: {
+          type: 'notification',
+          root: true
         }
+      }
     );
 
 };

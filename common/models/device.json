@@ -10,6 +10,15 @@
     "deviceId": {
       "type": "string",
       "required": true
+    },
+    "deviceType": {
+      "type": "string",
+      "required": true,
+      "default": "unknown"
+    },
+    "created": {
+      "defaultFn": "now",
+      "type": "date"
     }
   },
   "validations": [],

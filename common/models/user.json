@@ -2,7 +2,21 @@
   "name": "user",
   "plural": "users",
   "base": "User",
-  "properties": {},
+  "properties": {
+    "firstName": {
+      "type": "string"
+    },
+    "lastName": {
+      "type": "string"
+    },
+    "created": {
+      "defaultFn": "now",
+      "type": "date"
+    },
+    "modified": {
+      "type": "date"
+    }
+  },
   "validations": [],
   "relations": {
     "accessTokens": {
@@ -34,11 +48,6 @@
       "type": "hasMany",
       "model": "installation",
       "foreignKey": "userId"
-    },
-    "challenges": {
-      "type": "hasMany",
-      "model": "challenge",
-      "foreignKey": ""
     }
   },
   "acls": [],
