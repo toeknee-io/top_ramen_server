@@ -4,39 +4,59 @@ const path = require('path');
 
 const app = require(path.join('..', '..', 'server', 'server'));
 
+const ChallengeService = require(path.join(__dirname, '..', '..', 'server', 'services', 'challenge'));
+
 const mc = app._ramen.memcached;
 const Promise = app._ramen.promise;
 const _ = app._ramen.lodash;
 
+const identityService = app._ramen.identityService;
+
 function setIdentity(body, userId, rOrD) {
   return new Promise(function (resolve, reject) {
-
-    const CACHE_KEY = `identities:${userId}`;
-
-    mc.get(CACHE_KEY, function(err, data) {
-
-      if (err) console.error(err);
-
-      if (data) {
-        console.log(`${CACHE_KEY} cached`);
+    identityService.getByUserId(userId)
+      .then(data => {
         body[rOrD].identities = data;
-        resolve(body);
-      } else {
-        app.models.user.findById(userId, { include: ['identities'] }, function(err, user) {
-          console.log(`${CACHE_KEY} NOT cached`);
-          if (err) return reject(err);
-          body[rOrD].identities = user.__data.identities;
-          mc.set(CACHE_KEY, user.__data.identities, 2592000, (err) => { if (err) return console.error(err); } );
-          resolve(body);
-        });
-      }
-
-    });
-
+        resolve(body);})
+      .catch(err => reject(err));
   });
 }
 
+function sortChallenges(challenges) {
+
+  let results = {};
+
+  results.finished = _.remove(challenges, function(challenge) {
+
+    let status = '';
+
+    if (challenge.__data && challenge.__data.status)
+      status = challenge.__data.status;
+    else
+      status = challenge.status;
+
+    return status === 'finished';
+
+  });
+
+  results.open = challenges;
+
+  return results;
+
+}
+
 module.exports = function(Challenge) {
+
+  const challengeService = app._ramen.challengeService = new ChallengeService({ model: Challenge });
+
+  Challenge.observe('after save', function(ctx, next) {
+
+    challengeService.clearCacheById(ctx.instance.__data.challenger.userId).catch(err => console.error(err));
+    challengeService.clearCacheById(ctx.instance.__data.challenged.userId).catch(err => console.error(err));
+
+    next();
+
+  });
 
   Challenge.beforeRemote('create', function(ctx, challenge, next) {
 
@@ -74,10 +94,8 @@ module.exports = function(Challenge) {
         next(err);
       }
 
-      let challenger = model.firstName;
-
       app.models.notification.notify(challenge.challenged.userId,
-        { alert: { title: `${challenger} Challenges You!`, body: "\uD83C\uDF72 To A Nooduel! \uD83C\uDF5C" } }
+        { alert: { title: `${model.firstName} Challenges You!`, body: "\uD83C\uDF72 To A Nooduel! \uD83C\uDF5C" } }
       );
 
       next();
@@ -175,28 +193,19 @@ module.exports = function(Challenge) {
 
     if (!cb) cb = () => null
 
-    Challenge.find({ where: { or: [ { "challenger.userId": userId }, { 'challenged.userId': userId } ] } }, function(err, challenges) {
-
-      if (err) {
+    challengeService.getByUserId(userId)
+      .then(challenges => cb(null, sortChallenges(challenges)))
+      .catch(err => {
         console.error(err);
-        return cb(err, null);
-      }
-
-      let results = {};
-
-      results.finished = _.remove(challenges, challenge => challenge.__data.status === 'finished');
-      results.open = challenges;
-
-      cb(null, results);
-
-    });
+        cb(err, null);
+      });
 
   };
 
   Challenge.remoteMethod(
     'sort',
     {
-      description: "Find all of the user's challenges and sort them by status.",
+      description: "Find all of a user's challenges and return them sorted by status.",
       http: {
         verb: "get",
         status: 200,
@@ -204,6 +213,7 @@ module.exports = function(Challenge) {
       },
       accepts: [
         {
+          description: "The id of the user you're querying for",
           arg: 'userId',
           type: 'string',
           http: {
@@ -213,7 +223,8 @@ module.exports = function(Challenge) {
         }
       ],
       returns: {
-        type: Object,
+        description: "Returns an object with 'finished' and 'open' properties.  The 'finished' property contains an array of the user's finished challenges.  The 'open' property contains an array of the user's unfinished challenges.",
+        type: { "finished": [ Challenge ], "open": [ Challenge ] },
         root: true
       }
     }

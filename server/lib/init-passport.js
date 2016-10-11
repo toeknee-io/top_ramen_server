@@ -19,4 +19,6 @@ module.exports = function(app, passportConfigurator) {
     passportConfigurator.configureProvider(s, c);
   }
 
+  return app;
+
 };

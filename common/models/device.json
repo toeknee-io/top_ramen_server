@@ -2,14 +2,14 @@
   "name": "device",
   "plural": "devices",
   "base": "PersistedModel",
-  "idInjection": true,
+  "idInjection": false,
   "options": {
     "validateUpsert": true
   },
   "properties": {
     "deviceId": {
       "type": "string",
-      "required": true
+      "id": true
     },
     "deviceType": {
       "type": "string",

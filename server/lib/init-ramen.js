@@ -19,6 +19,12 @@ const logger = new winston.Logger({ transports: [ new winston.transports.Console
 module.exports = function(app) {
 
   app._ramen = {};
+
+  app.on('service:added', data => {
+    console.log('adding service', data.serviceName);
+    app._ramen[data.serviceName] = data.service;
+  });
+
   app._ramen.lodash = lodash;
   app._ramen.promise = Promise;
   app._ramen.memcached = memcached;

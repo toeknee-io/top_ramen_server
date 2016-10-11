@@ -1,6 +1,7 @@
 'use strict';
 
 const path = require('path');
+const inpect = require('util').inspect;
 
 const loopback = require('loopback');
 const boot = require('loopback-boot');
@@ -20,6 +21,11 @@ app.set('views', path.join(__dirname, '..', 'client', 'views'));
 app.set('view engine', 'pug');
 
 boot(app, __dirname, err => { if (err) throw err; });
+
+app.use(function (req, res, next) {
+  req._ramen = {};
+  next();
+});
 
 // setup middleware for request parsing and auth/session handling
 app.middleware('parse', bodyParser.json());
@@ -46,49 +52,31 @@ app.get('/auth/account', ensureLoggedIn('/login'), function(req, res, next) {
     && req.session.passport && req.session.passport.user)
   {
 
-    app.models.device.findOrCreate( { where: { deviceId: req.session.device.uuid } }, { deviceId: req.session.device.uuid, userId: req.session.passport.user, deviceType: req.session.device.deviceType }, function(err, device, created) {
+    app.models.device.findOrCreate({ where: { deviceId: req.session.device.uuid, userId: req.session.passport.user } }, { deviceId: req.session.device.uuid, deviceType: req.session.device.deviceType, userId: req.session.passport.user }, function(err, device, created) {
 
-      if (err) {
-
+      if (err || !device) {
         console.error(err);
-
-        res.send('<h1>blaargh on device findOrCreate</h1>');
-
+        return res.status(500).json({ error: { name: "Derprror", status: 500, message: `Failed to findOrCreate device record because ${err}` } });
       }
 
-      else if (created) console.log(`created new device record: deviceId [${device.deviceId}] userId [${device.userId}]`);
-      else console.log(`device record already exists: deviceId [${device.deviceId}] userId [${device.userId}]`);
+      if (created && device.userId)
+        console.log(`created new user: userId [${device.userId}] deviceType [${device.deviceType}] deviceId [${device.deviceId}] `);
 
-      app.models.accessToken.findOne( { where: { userId: device.userId }, order: 'created DESC' }, function(err, model) {
-
-        if (err || !model) {
-
-          if (err) console.error(err);
-
-          if (!model) console.log(`could not find accessToken for userId [${device.userId}]`);
-
-          return res.send('<h1>blaargh on accessToken findOne</h1>');
-
-        }
-
-        console.log(`accessToken.id: ${model.id}`);
-
-        res.setHeader("Set-Cookie",`access_token=${model.id}`);
-
+      if (device.deviceType === 'android' || device.deviceType === 'ios')
+        res.redirect('/mobile/redirect/auth/success');
+      else
         res.render('pages/loginProfiles', {
           user: req.user,
           url: req.url
         });
 
-      });
-
     });
 
   } else {
 
-    console.error('No device or user found in session');
+    console.error(`No device or user found in session ${inspect(req.session)}`);
 
-    res.send('<h1>blaargh no device or user found in session</h1>');
+    res.status(500).json({ error: { name: "AuthError", status: 50, message: "No device or user found in session" } });
 
   }
 
@@ -160,11 +148,13 @@ app.post('/signup', function(req, res, next) {
 
 });
 
-app.get('/login', (req, res) => res.render('pages/login'));
+app.get('/login', (req, res) => {
+  res.render('pages/login');
+});
 
-app.get('/auth/logout', function(req, res, next) {
+app.post('/api/auth/logout', function(req, res, next) {
   req.logout();
-  res.redirect('/');
+  res.status(200).json({ success: true });
 });
 
 app.post('/reset-password', ensureLoggedIn('/login'), (req, res, next) => {
@@ -177,11 +167,15 @@ app.get('/reset-password', function(req, res, next) {
   res.send('pw reset email sent');
 });
 
+app.get('/mobile/redirect/auth/success', function(req, res, next) {
+  res.send('<html><h1>KVN UN-WHITE ME!</h1><html>');
+});
+
 app.get('/mobile/redirect/auth/:provider', function(req, res, next) {
 
   let provider = req.params.provider;
 
-  if (!req.session.device)
+  if (!req.session.device || !req.session.device.uuid)
     req.session.device = {};
 
   if (provider !== 'local')

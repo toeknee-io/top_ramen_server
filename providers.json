@@ -17,7 +17,7 @@
     "callbackURL": "/auth/facebook/callback",
     "authPath": "/auth/facebook",
     "callbackPath": "/auth/facebook/callback",
-    "successRedirect": "/auth/account?splash=false",
+    "successRedirect": "/auth/account",
     "failureRedirect": "/login",
     "scope": ["email", "user_friends", "public_profile"],
     "failureFlash": true
@@ -31,7 +31,7 @@
     "callbackURL": "/auth/google/callback",
     "authPath": "/auth/google",
     "callbackPath": "/auth/google/callback",
-    "successRedirect": "/auth/account?splash=false",
+    "successRedirect": "/auth/account",
     "failureRedirect": "/login",
     "scope": ["email", "profile", "https://www.googleapis.com/auth/plus.login", "https://www.googleapis.com/auth/contacts", "https://www.googleapis.com/auth/plus.me", "https://www.googleapis.com/auth/plus.circles.read"],
     "failureFlash": true

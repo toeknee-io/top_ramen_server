@@ -29,10 +29,6 @@
       "emailVerificationRequired": true
     }
   },
-  "score": {
-    "dataSource": "topRamenMongoDb",
-    "public": true
-  },
   "device": {
     "dataSource": "topRamenMongoDb",
     "public": true
@@ -59,15 +55,15 @@
   },
   "application": {
     "dataSource": "topRamenMongoDb",
-    "public": true
+    "public": false
   },
   "notification": {
     "dataSource": "topRamenMongoDb",
-    "public": true
+    "public": false
   },
   "push": {
     "dataSource": "topRamenPushProvider",
-    "public": true
+    "public": false
   },
   "email": {
     "dataSource": "topRamenEmailDataSource",

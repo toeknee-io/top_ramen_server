@@ -20,7 +20,7 @@ module.exports = function(notification) {
 
         user.__data.installations.forEach( function(installation) {
 
-          if (installation.status === 'Active') {
+          if (installation.status === 'active') {
 
             let note = new app.models.notification({
               expirationInterval: 86400, // Expire time in seconds (1 day)
