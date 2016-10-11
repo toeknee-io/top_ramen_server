@@ -20,7 +20,8 @@
     "handleErrors": false
   },
   "legacyExplorer": false,
-  "cookieSecret": "a_secret_to_remember",
+  "cookieSecret": "a_cookie_to_remember",
+  "sessionSecret": "a_session_to_remember",
   "logDir": "/var/log/nodejs/top-ramen/",
   "pushServerKey": "AIzaSyAFvWVT56jaiJ9hyOW7TPN5W0g-mi8pnhI",
   "pushSenderId": 184977555503

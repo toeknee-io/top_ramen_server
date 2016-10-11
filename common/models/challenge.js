@@ -17,7 +17,7 @@ function setIdentity(body, userId, rOrD) {
     identityService.getByUserId(userId)
       .then(data => {
         body[rOrD].identities = data;
-        resolve(body);})
+        resolve();})
       .catch(err => reject(err));
   });
 }
@@ -75,7 +75,7 @@ module.exports = function(Challenge) {
     });
     */
     setIdentity(ctx.req.body, rUserId, 'challenger')
-      .then(body => setIdentity(body, dUserId, 'challenged'))
+      .then(body => setIdentity(ctx.req.body, dUserId, 'challenged'))
       .then(() => next())
       .catch(err => next(err));
 

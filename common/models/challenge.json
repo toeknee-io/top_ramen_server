@@ -12,7 +12,6 @@
         "type": "string",
         "required": true
       },
-      "identities": "array",
       "score": {
         "type": "number",
         "required": true,
@@ -24,7 +23,6 @@
         "type": "string",
         "required": true
       },
-      "identities": "array",
       "score": {
         "type": "number",
         "required": true,

@@ -18,6 +18,7 @@ module.exports = function(notification) {
           return cb(err, null);
         }
 
+        console.dir(user);
         user.__data.installations.forEach( function(installation) {
 
           if (installation.status === 'active') {

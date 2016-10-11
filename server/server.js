@@ -36,12 +36,11 @@ app.middleware('auth', loopback.token({ model: app.models.accessToken }));
 
 app.middleware('session:before', cookieParser(app.get('cookieSecret')));
 app.middleware('session', expressSession({
-  secret: 'kitty',
+  secret: app.get('sessionSecret'),
   saveUninitialized: true,
   resave: true
 }));
 
-// initialize login through passport
 require(path.join(__dirname, 'lib', './init-passport'))(app, passportConfigurator);
 
 app.get('/signup', (req, res) => res.render('pages/signup'));
@@ -60,7 +59,7 @@ app.get('/auth/account', ensureLoggedIn('/login'), function(req, res, next) {
       }
 
       if (created && device.userId)
-        console.log(`created new user: userId [${device.userId}] deviceType [${device.deviceType}] deviceId [${device.deviceId}] `);
+        console.log(`created and logged in new user: userId [${device.userId}] deviceType [${device.deviceType}] deviceId [${device.deviceId}] `);
 
       if (device.deviceType === 'android' || device.deviceType === 'ios')
         res.redirect('/mobile/redirect/auth/success');
@@ -148,11 +147,9 @@ app.post('/signup', function(req, res, next) {
 
 });
 
-app.get('/login', (req, res) => {
-  res.render('pages/login');
-});
+app.get('/login', (req, res) => res.render('pages/login'));
 
-app.post('/api/auth/logout', function(req, res, next) {
+app.post('/api/auth/logout', function(req, res) {
   req.logout();
   res.status(200).json({ success: true });
 });
@@ -162,16 +159,14 @@ app.post('/reset-password', ensureLoggedIn('/login'), (req, res, next) => {
   next();
 });
 
-app.get('/reset-password', function(req, res, next) {
+app.get('/reset-password', function(req, res) {
   app.models.user.emit('resetPasswordRequest', req.user);
   res.send('pw reset email sent');
 });
 
-app.get('/mobile/redirect/auth/success', function(req, res, next) {
-  res.send('<html><h1>KVN UN-WHITE ME!</h1><html>');
-});
+app.get('/mobile/redirect/auth/success', (req, res) => res.send('<html><h1>KVN UN-WHITE ME!</h1></html>'));
 
-app.get('/mobile/redirect/auth/:provider', function(req, res, next) {
+app.get('/mobile/redirect/auth/:provider', function(req, res) {
 
   let provider = req.params.provider;
 

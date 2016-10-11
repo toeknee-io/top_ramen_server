@@ -27,7 +27,9 @@
     "loopback-datasource-juggler": "^2.39.0",
     "memcached": "2.2.2",
     "serve-favicon": "^2.0.1",
-    "strong-error-handler": "^1.0.1"
+    "strong-cluster-connect-store": "^1.0.3",
+    "strong-error-handler": "^1.0.1",
+    "strong-store-cluster": "^1.0.1"
   },
   "devDependencies": {
     "coffee-script": "^1.10.0",
