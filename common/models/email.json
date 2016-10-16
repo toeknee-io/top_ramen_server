@@ -7,8 +7,8 @@
   },
   "properties": {
     "created": {
-      "defaultFn": "now",
-      "type": "date"
+      "type": "date",
+      "defaultFn": "now"
     }
   },
   "validations": [],

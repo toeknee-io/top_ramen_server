@@ -10,7 +10,7 @@
     "name": {
       "type": "string",
       "id": true
-     }
+    }
   },
   "validations": [],
   "relations": {},

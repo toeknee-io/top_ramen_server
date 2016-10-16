@@ -22,21 +22,19 @@ module.exports = function(UserIdentity) {
       model.lastName = ctx.instance.__data.profile.name.familyName || ctx.instance.__data.profile.displayName.split(/\s/)[1];
 
       app.models.user.upsert(model, function(err, model) {
-        if (err) return next(err);
-        return next();
+        if (err) next(err);
+        else next();
       });
 
     });
 
-    if (ctx.instance)
-      identityService.setCacheById(ctx.instance.userId, ctx.instance).catch(err => console.error(err));
-
-  });
-
-  UserIdentity.beforeRemote('**', function(ctx, challenge, next) {
-
-    console.log(`${ctx.req.method} ${ctx.req.originalUrl}`);
-    next();
+    if (ctx.instance) {
+      identityService.getByUserId(ctx.instance.userId)
+        .then(function(identities) {
+          if (!Array.isArray(identities)) identities = [ identities ];
+          identityService.setCacheById(ctx.instance.userId, identities).catch(err => console.error(err));})
+        .catch(err => console.error(err));
+    }
 
   });
 

@@ -1,0 +1,25 @@
+{
+  "name": "ramen",
+  "plural": "ramen",
+  "base": "PersistedModel",
+  "idInjection": false,
+  "options": {
+    "validateUpsert": true
+  },
+  "properties": {
+    "type": {
+      "type": "string",
+      "id": true
+    }
+  },
+  "validations": [],
+  "relations": {
+    "challenges": {
+      "type": "hasMany",
+      "model": "challenge",
+      "foreignKey": "ramenId"
+    }
+  },
+  "acls": [],
+  "methods": {}
+}

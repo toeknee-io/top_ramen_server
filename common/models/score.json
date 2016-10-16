@@ -1,0 +1,30 @@
+{
+  "name": "score",
+  "plural": "scores",
+  "base": "PersistedModel",
+  "idInjection": true,
+  "options": {
+    "validateUpsert": true
+  },
+  "properties": {
+    "score": {
+      "type": "number",
+      "required": true
+    }
+  },
+  "validations": [],
+  "relations": {
+    "user": {
+      "type": "belongsTo",
+      "model": "user",
+      "foreignKey": "userId"
+    },
+    "challenge": {
+      "type": "belongsTo",
+      "model": "challenge",
+      "foreignKey": "challengeId"
+    }
+  },
+  "acls": [],
+  "methods": {}
+}

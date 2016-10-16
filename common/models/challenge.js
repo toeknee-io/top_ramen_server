@@ -1,22 +1,22 @@
 'use strict';
 
 const path = require('path');
+const inspect = require('util').inspect;
 
 const app = require(path.join('..', '..', 'server', 'server'));
 
 const ChallengeService = require(path.join(__dirname, '..', '..', 'server', 'services', 'challenge'));
 
-const mc = app._ramen.memcached;
 const Promise = app._ramen.promise;
 const _ = app._ramen.lodash;
 
 const identityService = app._ramen.identityService;
 
-function setIdentity(body, userId, rOrD) {
+function setIdentity(rOrD) {
   return new Promise(function (resolve, reject) {
-    identityService.getByUserId(userId)
+    identityService.getByUserId(rOrD.userId)
       .then(data => {
-        body[rOrD].identities = data;
+        rOrD.identities = data;
         resolve();})
       .catch(err => reject(err));
   });
@@ -26,20 +26,12 @@ function sortChallenges(challenges) {
 
   let results = {};
 
-  results.finished = _.remove(challenges, function(challenge) {
+  results.new = [];
+  results.started = [];
+  results.finished = [];
+  results.declined = [];
 
-    let status = '';
-
-    if (challenge.__data && challenge.__data.status)
-      status = challenge.__data.status;
-    else
-      status = challenge.status;
-
-    return status === 'finished';
-
-  });
-
-  results.open = challenges;
+  challenges.forEach(challenge => _.attempt(() => results[challenge.status].push(challenge)));
 
   return results;
 
@@ -60,8 +52,11 @@ module.exports = function(Challenge) {
 
   Challenge.beforeRemote('create', function(ctx, challenge, next) {
 
-    let rUserId = ctx.req.body.challenger.userId;
-    let dUserId = ctx.req.body.challenged.userId;
+    ctx.req.body.challenger = {};
+    ctx.req.body.challenged = {};
+
+    ctx.req.body.challenger.userId = ctx.req.accessToken.userId.toString();
+    ctx.req.body.challenged.userId = ctx.req.body.userId;
     /*
     Challenge.find({ where: { and: [ { status: { neq: "finished" } }, { "challenger.userId": rUserId }, { "challenged.userId": dUserId } ] } }, function(err, result) {
       if (err) return next(err);
@@ -74,8 +69,8 @@ module.exports = function(Challenge) {
       else return next();
     });
     */
-    setIdentity(ctx.req.body, rUserId, 'challenger')
-      .then(body => setIdentity(ctx.req.body, dUserId, 'challenged'))
+    setIdentity(ctx.req.body.challenger)
+      .then(body => setIdentity(ctx.req.body.challenged))
       .then(() => next())
       .catch(err => next(err));
 
@@ -83,9 +78,9 @@ module.exports = function(Challenge) {
 
   Challenge.afterRemote('create', function(ctx, challenge, next) {
 
-    let userId = challenge.__data.challenger.userId;
+    let userId = ctx.req.accessToken.userId.toString();
 
-    if (!userId) return next(new Error('Could not find challenged.userId in request'));
+    if (!userId) return next(new Error('Could not find accessToken.userId in request'));
 
     app.models.user.findById(userId, function(err, model) {
 
@@ -95,7 +90,13 @@ module.exports = function(Challenge) {
       }
 
       app.models.notification.notify(challenge.challenged.userId,
-        { alert: { title: `${model.firstName} Challenges You!`, body: "\uD83C\uDF72 To A Nooduel! \uD83C\uDF5C" } }
+        {
+          alert: {
+            title: `${model.firstName} Challenges You!`,
+            body: "\uD83C\uDF72 To A Nooduel! \uD83C\uDF5C"
+          },
+          challenge: challenge
+        }
       );
 
       next();
@@ -107,79 +108,103 @@ module.exports = function(Challenge) {
 
   Challenge.beforeRemote('prototype.updateAttributes', function(ctx, challenge, next) {
 
-    let challengeId = ctx.req.params.id;
-    let userId = ctx.args.data.userId;
-    let score = ctx.args.data.score;
+    let userId = ctx.req.accessToken.userId.toString();
 
-    if (!challengeId) return next(new Error('Could not find challengeId in request.'));
+    let challengeId = ctx.req.params.id;
+    let score = ctx.req.body.score;
+    let ramenId = ctx.req.body.ramenId;
+    let status = ctx.req.body.status;
+
+    let reqErr = new Error();
 
     Challenge.findById(challengeId, function(err, model) {
 
-      if (err) {
-        console.error(err);
-        next(err);
+      if (err || !model)
+        reqErr.message = `Failed to find challenge with id ${challengeId}`;
+
+      let data = model || {};
+
+      if (data.status === 'finished')
+        reqErr.message = 'A finished challenge cannot be updated.';
+
+      if (score) {
+        app.models.score.findOrCreate({ where: { challengeId: challengeId, userId: userId } }, { challengeId: challengeId, userId: userId, score: score }, (err, score, created) => {
+          if (err) console.error(err);
+          if (!created) reqErr.message = 'This player has already played in this challenge.';
+        });
       }
 
-      let data = model.__data;
-
-      if (data.status === 'finished') {
-        err = new Error('A finished challenge cannot be updated.');
-        err.status = 403;
-        delete err.stack;
-        next(err);
+      if (reqErr.message.length) {
+        reqErr.status = 403;
+        delete reqErr.stack;
+        return next(reqErr);
       }
 
-      let player = data.challenger.userId === userId ? 'challenger' : 'challenged';
-
-      if (!data[player].score) {
-        data[player].score = score;
-      } else {
-        err = new Error('This player has already played in this challenge.');
-        err.status = 403;
-        delete err.stack;
-        next(err);
-      }
+      data[data.challenger.userId === userId ? 'challenger' : 'challenged'].score = score;
 
       let rScore = data.challenger.score;
       let dScore = data.challenged.score;
 
-      data.status = rScore && dScore ? 'finished' : 'started';
+      if (ctx.req.body.status)
+        data.status = ctx.req.body.status;
+      else
+        data.status = rScore && dScore ? 'finished' : 'started';
 
-      if (data.status === 'finished') {
+      app.models.user.findById(data.challenger.userId, function(err, rModel) {
+        if (err) return console.error(err);
+        let rName = rModel.firstName;
 
-        data.winner = ( rScore > dScore ? data.challenger.userId : (rScore === dScore ? 'tied' : data.challenged.userId) );
-
-        app.models.user.findById(data.challenger.userId, function(err, rModel) {
+        app.models.user.findById(data.challenged.userId, function(err, dModel) {
           if (err) return console.error(err);
-          let rName = rModel.firstName;
+          let dName = dModel.firstName;
 
-          app.models.user.findById(data.challenged.userId, function(err, dModel) {
-            if (err) return console.error(err);
-            let dName = dModel.firstName;
-            let title = `\uD83C\uDFC6 Nooduel Completed \uD83C\uDFC6`
-            app.models.notification.notify(data.challenger.userId,
-              {
-                alert: {
-                  title: title,
-                  body: `You ${data.winner === 'tied' ? 'Tied' : (data.winner === data.challenger.userId ? 'Beat' : 'Lost to')} ${dName} ${rScore} to ${dScore}`
+            if (data.status === 'finished') {
+
+              data.winner = ( rScore > dScore ? data.challenger.userId : (rScore === dScore ? 'tied' : data.challenged.userId) );
+
+              let title = `Nooduel Completed \uD83C\uDFC6`;
+
+              app.models.notification.notify(data.challenger.userId,
+                {
+                  alert: {
+                    title: title,
+                    body: `You ${data.winner === 'tied' ? 'Tied' : (data.winner === data.challenger.userId ? 'Beat' : 'Lost to')} ${dName} ${rScore} to ${dScore}`
+                  },
+                  challenge: challenge
                 }
-              }
-            );
-            app.models.notification.notify(data.challenged.userId,
-              {
-                alert: {
-                  title: title,
-                  body: `You ${data.winner === 'tied' ? 'Tied' : (data.winner === data.challenged.userId ? 'Beat' : 'Lost to')} ${rName} ${dScore} to ${rScore}`
+              );
+              app.models.notification.notify(data.challenged.userId,
+                {
+                  alert: {
+                    title: title,
+                    body: `You ${data.winner === 'tied' ? 'Tied' : (data.winner === data.challenged.userId ? 'Beat' : 'Lost to')} ${rName} ${dScore} to ${rScore}`
+                  },
+                  challenge: challenge
                 }
-              }
-            );
-          });
+              );
+
+            } else if (data.status === 'declined') {
+
+              app.models.notification.notify(data.challenger.userId,
+                {
+                  alert: {
+                    title: 'Nooduel Declined \uF09F\u918E',
+                    body: ` ${dName} Has Declined Your Duel`
+                  },
+                  challenge: challenge
+                }
+              );
+
+            } else {
+              data.winner = null;
+            }
 
         });
 
-      } else {
-        data.winner = null;
-      }
+      });
+
+      if (!_.isEmpty(ramenId))
+        data.ramenId = ramenId;
 
       ctx.args.data = data;
 
@@ -223,8 +248,8 @@ module.exports = function(Challenge) {
         }
       ],
       returns: {
-        description: "Returns an object with 'finished' and 'open' properties.  The 'finished' property contains an array of the user's finished challenges.  The 'open' property contains an array of the user's unfinished challenges.",
-        type: { "finished": [ Challenge ], "open": [ Challenge ] },
+        description: "Returns an object with 'open', 'finished', and 'declined' properties.  The 'finished' property contains an array of the user's finished challenges.  The 'open' property contains an array of the user's unfinished challenges.",
+        type: { "finished": [ Challenge ], "open": [ Challenge ], "declined": [ Challenge ] },
         root: true
       }
     }

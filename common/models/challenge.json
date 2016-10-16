@@ -8,25 +8,31 @@
   },
   "properties": {
     "challenger": {
-      "userId": {
-        "type": "string",
-        "required": true
-      },
-      "score": {
-        "type": "number",
-        "required": true,
-        "default": null
+      "type": {
+        "userId": {
+          "type": "string",
+          "required": true
+        },
+        "identities": [ "userIdentity" ],
+        "score": {
+          "type": "number",
+          "required": true,
+          "default": null
+        }
       }
     },
     "challenged": {
-      "userId": {
-        "type": "string",
-        "required": true
-      },
-      "score": {
-        "type": "number",
-        "required": true,
-        "default": null
+      "type": {
+        "userId": {
+          "type": "string",
+          "required": true
+        },
+        "identities": [ "userIdentity" ],
+        "score": {
+          "type": "number",
+          "required": true,
+          "default": null
+        }
       }
     },
     "status": {
@@ -38,12 +44,18 @@
       "type": "string"
     },
     "created": {
-      "defaultFn": "now",
-      "type": "date"
+      "type": "date",
+      "defaultFn": "now"
     }
   },
   "validations": [],
-  "relations": {},
+  "relations": {
+    "ramen": {
+      "type": "belongsTo",
+      "model": "ramen",
+      "foreignKey": "ramenId"
+    }
+  },
   "acls": [],
   "methods": {}
 }

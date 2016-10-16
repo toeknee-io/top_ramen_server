@@ -72,5 +72,13 @@
   "challenge": {
     "dataSource": "topRamenMongoDb",
     "public": true
+  },
+  "score": {
+    "dataSource": "topRamenMongoDb",
+    "public": true
+  },
+  "ramen": {
+    "dataSource": "topRamenMongoDb",
+    "public": true
   }
 }

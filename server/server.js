@@ -1,7 +1,7 @@
 'use strict';
 
 const path = require('path');
-const inpect = require('util').inspect;
+const inspect = require('util').inspect;
 
 const loopback = require('loopback');
 const boot = require('loopback-boot');
@@ -24,6 +24,7 @@ boot(app, __dirname, err => { if (err) throw err; });
 
 app.use(function (req, res, next) {
   req._ramen = {};
+  console.log(`request ${req.method} ${req.originalUrl}`);
   next();
 });
 
@@ -32,14 +33,10 @@ app.middleware('parse', bodyParser.json());
 app.middleware('parse', bodyParser.urlencoded({ extended: true }));
 
 // access token is only available after boot
-app.middleware('auth', loopback.token({ model: app.models.accessToken }));
+app.middleware('auth', loopback.token({ model: app.models.accessToken, currentUserLiteral: 'me' }));
 
 app.middleware('session:before', cookieParser(app.get('cookieSecret')));
-app.middleware('session', expressSession({
-  secret: app.get('sessionSecret'),
-  saveUninitialized: true,
-  resave: true
-}));
+app.middleware('session', expressSession({ secret: app.get('sessionSecret'), saveUninitialized: true, resave: true }));
 
 require(path.join(__dirname, 'lib', './init-passport'))(app, passportConfigurator);
 
@@ -55,19 +52,28 @@ app.get('/auth/account', ensureLoggedIn('/login'), function(req, res, next) {
 
       if (err || !device) {
         console.error(err);
-        return res.status(500).json({ error: { name: "Derprror", status: 500, message: `Failed to findOrCreate device record because ${err}` } });
+        return res.status(500).json({ error: { name: "AuthError", status: 500, message: `Failed to findOrCreate device record because ${err}` } });
       }
 
       if (created && device.userId)
         console.log(`created and logged in new user: userId [${device.userId}] deviceType [${device.deviceType}] deviceId [${device.deviceId}] `);
 
-      if (device.deviceType === 'android' || device.deviceType === 'ios')
-        res.redirect('/mobile/redirect/auth/success');
-      else
-        res.render('pages/loginProfiles', {
-          user: req.user,
-          url: req.url
+      app.models.user.findById(req.session.passport.user, function(err, user) {
+
+        req.login(user, function(err) {
+
+          if (err) {
+            console.error(err);
+            return res.redirect('back');
+          }
+
+          if (device.deviceType === 'android' || device.deviceType === 'ios')
+            res.redirect(`/mobile/redirect/auth/success?token=${req.accessToken.id}&id=${req.session.passport.user}&`);
+          else
+            res.redirect('/');
+
         });
+      });
 
     });
 
@@ -93,6 +99,7 @@ app.post('/signup', function(req, res, next) {
   let User = app.models.user;
 
   let newUser = {};
+
   newUser.email = req.body.email.toLowerCase();
   newUser.username = req.body.username.trim();
   newUser.password = req.body.password;
@@ -178,6 +185,7 @@ app.get('/mobile/redirect/auth/:provider', function(req, res) {
 
   req.session.device.uuid = req.query.uuid;
   req.session.device.deviceType = req.query.deviceType;
+  req.session.loginToken = req.query.token;
 
   res.redirect('/' + provider);
 

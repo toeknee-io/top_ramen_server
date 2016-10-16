@@ -1,5 +1,6 @@
 'use strict';
 
+const _ = require('lodash');
 const path = require('path');
 
 const app = require(path.join(__dirname, '..', 'server'));
@@ -29,11 +30,14 @@ class IdentityService extends TopRamenService {
           app.models.user.findById(userId, { include: [this.nameSpace] }, (err, user) => {
             if (err) return reject(err);
             if (!user) return resolve();
-            this.setCacheById(userId, user.__data[this.nameSpace]).catch(err => console.error(err));
-            resolve(user.__data[this.nameSpace]);
+            let identities = user.__data[this.nameSpace];
+            if (identities && !_.isEmpty(identities)) {
+              if (!Array.isArray(identities)) identities = [ identities ];
+              this.setCacheById(userId, identities).catch(err => console.error(err));
+            }
+            resolve(identities);
           });
         }
-
       });
 
     });

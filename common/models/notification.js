@@ -18,7 +18,15 @@ module.exports = function(notification) {
           return cb(err, null);
         }
 
-        console.dir(user);
+        let actions = [];
+
+        if (data.challenge.status === 'new') {
+          actions = [
+            { "title": "Accept", "callback": "pushActions.startGameStateChallenges" },
+            { "title": "Decline", "callback": "pushActions.declineChallenge" }
+          ];
+        }
+
         user.__data.installations.forEach( function(installation) {
 
           if (installation.status === 'active') {
@@ -29,7 +37,9 @@ module.exports = function(notification) {
               deviceToken: installation.deviceToken,
               title: data.alert.title,
               body: data.alert.body,
-              click_action: "MAIN"
+              click_action: "MAIN",
+              actions: actions,
+              challenge: data.challenge
             });
 
             console.log(`pushing notification { ${data.alert.title}: ${data.alert.body} } to [${userId}]`);
