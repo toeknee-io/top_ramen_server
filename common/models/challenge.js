@@ -115,17 +115,37 @@ module.exports = function(Challenge) {
     let ramenId = ctx.req.body.ramenId;
     let status = ctx.req.body.status;
 
+    console.dir(ctx.req.body);
+
     let reqErr = new Error();
 
     Challenge.findById(challengeId, function(err, model) {
 
-      if (err || !model)
+      if (model && model.status === 'finished') {
+        reqErr.status = 403;
+        reqErr.message = 'A finished challenge cannot be updated.';
+      }
+
+      if (!model) {
+        reqErr.status = 404;
         reqErr.message = `Failed to find challenge with id ${challengeId}`;
+      }
+
+      if (err) {
+        reqErr.status = 500;
+        reqErr.message = `Exception occurred while finding challenge: ${err}`;
+      }
+
+      if (!_.isEmpty(reqErr.message))
+        return next(reqErr);
 
       let data = model || {};
 
-      if (data.status === 'finished')
-        reqErr.message = 'A finished challenge cannot be updated.';
+      ctx.args.data = data;
+      ctx.req.body = data;
+
+      if (!_.isEmpty(ramenId))
+        data.ramenId = ramenId;
 
       if (score) {
         app.models.score.findOrCreate({ where: { challengeId: challengeId, userId: userId } }, { challengeId: challengeId, userId: userId, score: score }, (err, score, created) => {
@@ -134,81 +154,74 @@ module.exports = function(Challenge) {
         });
       }
 
-      if (reqErr.message.length) {
-        reqErr.status = 403;
-        delete reqErr.stack;
-        return next(reqErr);
-      }
-
       data[data.challenger.userId === userId ? 'challenger' : 'challenged'].score = score;
 
       let rScore = data.challenger.score;
       let dScore = data.challenged.score;
 
-      if (ctx.req.body.status)
-        data.status = ctx.req.body.status;
-      else
+      if (_.isEmpty(status)) {
+
         data.status = rScore && dScore ? 'finished' : 'started';
 
-      app.models.user.findById(data.challenger.userId, function(err, rModel) {
-        if (err) return console.error(err);
-        let rName = rModel.firstName;
-
-        app.models.user.findById(data.challenged.userId, function(err, dModel) {
+        app.models.user.findById(data.challenger.userId, function(err, rModel) {
           if (err) return console.error(err);
-          let dName = dModel.firstName;
+          let rName = rModel.firstName;
 
-            if (data.status === 'finished') {
+          app.models.user.findById(data.challenged.userId, function(err, dModel) {
+            if (err) return console.error(err);
+            let dName = dModel.firstName;
 
-              data.winner = ( rScore > dScore ? data.challenger.userId : (rScore === dScore ? 'tied' : data.challenged.userId) );
+              if (data.status === 'finished') {
 
-              let title = `Nooduel Completed \uD83C\uDFC6`;
+                data.winner = ( rScore > dScore ? data.challenger.userId : (rScore === dScore ? 'tied' : data.challenged.userId) );
 
-              app.models.notification.notify(data.challenger.userId,
-                {
-                  alert: {
-                    title: title,
-                    body: `You ${data.winner === 'tied' ? 'Tied' : (data.winner === data.challenger.userId ? 'Beat' : 'Lost to')} ${dName} ${rScore} to ${dScore}`
-                  },
-                  challenge: challenge
-                }
-              );
-              app.models.notification.notify(data.challenged.userId,
-                {
-                  alert: {
-                    title: title,
-                    body: `You ${data.winner === 'tied' ? 'Tied' : (data.winner === data.challenged.userId ? 'Beat' : 'Lost to')} ${rName} ${dScore} to ${rScore}`
-                  },
-                  challenge: challenge
-                }
-              );
+                let title = `Nooduel Completed \uD83C\uDFC6`;
 
-            } else if (data.status === 'declined') {
+                app.models.notification.notify(data.challenger.userId,
+                  {
+                    alert: {
+                      title: title,
+                      body: `You ${data.winner === 'tied' ? 'Tied' : (data.winner === data.challenger.userId ? 'Beat' : 'Lost to')} ${dName} ${rScore} to ${dScore}`
+                    },
+                    challenge: challenge
+                  }
+                );
+                app.models.notification.notify(data.challenged.userId,
+                  {
+                    alert: {
+                      title: title,
+                      body: `You ${data.winner === 'tied' ? 'Tied' : (data.winner === data.challenged.userId ? 'Beat' : 'Lost to')} ${rName} ${dScore} to ${rScore}`
+                    },
+                    challenge: challenge
+                  }
+                );
 
-              app.models.notification.notify(data.challenger.userId,
-                {
-                  alert: {
-                    title: 'Nooduel Declined \uF09F\u918E',
-                    body: ` ${dName} Has Declined Your Duel`
-                  },
-                  challenge: challenge
-                }
-              );
+              } else if (data.status === 'declined') {
 
-            } else {
-              data.winner = null;
-            }
+                app.models.notification.notify(data.challenger.userId,
+                  {
+                    alert: {
+                      title: 'Nooduel Declined \uF09F\u918E',
+                      body: ` ${dName} Has Declined Your Duel`
+                    },
+                    challenge: challenge
+                  }
+                );
+
+              } else {
+                data.winner = null;
+              }
+
+              next();
+
+          });
 
         });
 
-      });
-
-      if (!_.isEmpty(ramenId))
-        data.ramenId = ramenId;
-
-      ctx.args.data = data;
-
-      next();
+      } else {
+        data.status = ctx.req.body.status;
+        next();
+      }
 
     });
 

@@ -6,7 +6,7 @@ module.exports = function(notification) {
 
     notification.notify = function(userId, data, cb) {
 
-      if (!cb) cb = () => null
+      if (!cb) cb = () => null;
 
       if (app.models.push.listenerCount('error') === 0)
         app.models.push.on('error', err => console.error(err));
@@ -22,7 +22,7 @@ module.exports = function(notification) {
 
         if (data.challenge.status === 'new') {
           actions = [
-            { "title": "Accept", "callback": "pushActions.startGameStateChallenges" },
+            { "title": "Accept", "callback": "pushActions.acceptChallenge" },
             { "title": "Decline", "callback": "pushActions.declineChallenge" }
           ];
         }
@@ -37,7 +37,7 @@ module.exports = function(notification) {
               deviceToken: installation.deviceToken,
               title: data.alert.title,
               body: data.alert.body,
-              click_action: "MAIN",
+              click_action: 'MAIN',
               actions: actions,
               challenge: data.challenge
             });
@@ -58,7 +58,7 @@ module.exports = function(notification) {
 
       });
 
-    }
+    };
 
     notification.remoteMethod(
       'notify',

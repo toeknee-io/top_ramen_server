@@ -13,8 +13,6 @@ Memcached.config.poolSize = 25;
 Memcached.config.timeout = 1000;
 Memcached.config.maxExpiration = 2592000;
 
-const memcached = new Memcached('localhost');
-
 module.exports = function(User) {
 
   const userService = app._ramen.userService = new UserService({ model: User });
@@ -24,7 +22,7 @@ module.exports = function(User) {
     if (ctx.methodString === 'user.prototype.__get__identities') {
       app._ramen.identityService.getByUserId(ctx.req.params.id)
         .then(identities => ctx.res.json(identities))
-        .catch(err => next());
+        .catch(err => next(err));
     } else {
       next();
     }
@@ -63,13 +61,13 @@ module.exports = function(User) {
     });
   });
 
-  User.social = function(userId, cb) {
+  User.social = function(req, cb) {
 
-    if (!cb) cb = () => null
+    if (!cb) cb = () => null;
 
     let results = {};
-
-    app._ramen.identityService.getByUserId(userId).then(identities => {
+    console.dir(req.accessToken);
+    app._ramen.identityService.getByUserId(req.accessToken.userId.toString()).then(identities => {
 
       if (!Array.isArray(identities)) identities = [ identities ];
 
@@ -82,8 +80,9 @@ module.exports = function(User) {
           rp.get(`https://graph.facebook.com/me/friends?access_token=${token}`)
             .then((res) => {
               results.facebook = {};
+              results.facebook.externalId = identity.externalId;
               results.facebook.displayName = identity.profile.displayName;
-              results.facebook.picture = `https://graph.facebook.com/me/picture?access_token=${token}&type=large`;
+              results.facebook.picture = `https://graph.facebook.com/${identity.externalId}/picture?type=large`;
               results.facebook.friends = res.data;
               cb(null, results); })
             .catch(err => cb(err));
@@ -102,14 +101,14 @@ module.exports = function(User) {
       http: {
         verb: "get",
         status: 200,
-        path: "/social/:userId/"
+        path: "/social/:id/"
       },
       accepts: [
         {
-          arg: 'userId',
-          type: 'string',
+          arg: 'req',
+          type: 'object',
           http: {
-            source: 'path'
+            source: 'req'
           },
           required: true
         }

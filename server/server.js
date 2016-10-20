@@ -17,10 +17,23 @@ const bodyParser = require('body-parser');
 const cookieParser = require('cookie-parser');
 const expressSession = require('express-session');
 
+const CronJob = require('cron').CronJob;
+
+const challengeReminderJob = require(path.join(__dirname, 'jobs', 'push-challenge-unfinished'));
+
 app.set('views', path.join(__dirname, '..', 'client', 'views'));
 app.set('view engine', 'pug');
 
 boot(app, __dirname, err => { if (err) throw err; });
+
+app.on('booted', function() {
+
+  // access token is only available after boot
+  app.middleware('auth', loopback.token({ model: app.models.accessToken, currentUserLiteral: 'me' }));
+
+  new CronJob('00 00 12,18 * * *', () => challengeReminderJob(app), null, true, 'America/New_York');
+
+});
 
 app.use(function (req, res, next) {
   req._ramen = {};
@@ -32,9 +45,6 @@ app.use(function (req, res, next) {
 app.middleware('parse', bodyParser.json());
 app.middleware('parse', bodyParser.urlencoded({ extended: true }));
 
-// access token is only available after boot
-app.middleware('auth', loopback.token({ model: app.models.accessToken, currentUserLiteral: 'me' }));
-
 app.middleware('session:before', cookieParser(app.get('cookieSecret')));
 app.middleware('session', expressSession({ secret: app.get('sessionSecret'), saveUninitialized: true, resave: true }));
 
@@ -44,8 +54,8 @@ app.get('/signup', (req, res) => res.render('pages/signup'));
 
 app.get('/auth/account', ensureLoggedIn('/login'), function(req, res, next) {
 
-  if (req.session.device && req.session.device.uuid
-    && req.session.passport && req.session.passport.user)
+  if (req.session.device && req.session.device.uuid &&
+    req.session.passport && req.session.passport.user)
   {
 
     app.models.device.findOrCreate({ where: { deviceId: req.session.device.uuid, userId: req.session.passport.user } }, { deviceId: req.session.device.uuid, deviceType: req.session.device.deviceType, userId: req.session.passport.user }, function(err, device, created) {
