@@ -1,6 +1,7 @@
 {
   "restApiRoot": "/api",
   "host": "0.0.0.0",
+  "hostName": "www.toeknee.io",
   "port": 3000,
   "remoting": {
     "context": false,
@@ -24,5 +25,7 @@
   "sessionSecret": "a_session_to_remember",
   "logDir": "/var/log/nodejs/top-ramen/",
   "pushServerKey": "AIzaSyAFvWVT56jaiJ9hyOW7TPN5W0g-mi8pnhI",
-  "pushSenderId": 184977555503
+  "pushSenderId": 184977555503,
+  "mongoDbOplogPid": "/var/run/user/1000/listener-mongodb-oplog.pid",
+  "pushChallengeUnfinishedPid": "/var/run/user/1000/job-push-challenge-unfinished.pid"
 }

@@ -21,7 +21,7 @@ module.exports = function(UserIdentity) {
       model.firstName = ctx.instance.__data.profile.name.givenName || ctx.instance.__data.profile.displayName.split(/\s/)[0];
       model.lastName = ctx.instance.__data.profile.name.familyName || ctx.instance.__data.profile.displayName.split(/\s/)[1];
 
-      app.models.user.upsert(model, function(err, model) {
+      app.models.user.upsert(model, function(err) {
         if (err) next(err);
         else next();
       });

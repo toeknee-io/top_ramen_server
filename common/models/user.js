@@ -66,7 +66,7 @@ module.exports = function(User) {
     if (!cb) cb = () => null;
 
     let results = {};
-    console.dir(req.accessToken);
+
     app._ramen.identityService.getByUserId(req.accessToken.userId.toString()).then(identities => {
 
       if (!Array.isArray(identities)) identities = [ identities ];

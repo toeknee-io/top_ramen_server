@@ -1,8 +1,14 @@
 'use strict';
 
-module.exports = function(app) {
+const fs = require('fs');
+const path = require('path');
+const CronJob = require('cron').CronJob;
 
-  console.log('push-challenge-unfinished job started');
+const app = require(path.join(__dirname, '..', 'server'));
+
+exports.startJob = function(app) {
+
+  console.log('started: cron job [push-challenge-unfinished]');
 
   function sendNotification(userId, challenge) {
 
@@ -57,3 +63,9 @@ module.exports = function(app) {
   });
 
 }
+
+new CronJob('00 00 12 * * *', () => exports.startJob(app), null, true, 'America/New_York');
+
+fs.writeFileSync(app.get('pushChallengeUnfinishedPid'), process.pid);
+
+console.log('scheduled: job [push-challenge-unfinished]');

@@ -1,7 +1,6 @@
 'use strict';
 
 const path = require('path');
-const inspect = require('util').inspect;
 
 const app = require(path.join('..', '..', 'server', 'server'));
 
@@ -41,15 +40,6 @@ module.exports = function(Challenge) {
 
   const challengeService = app._ramen.challengeService = new ChallengeService({ model: Challenge });
 
-  Challenge.observe('after save', function(ctx, next) {
-
-    challengeService.clearCacheById(ctx.instance.__data.challenger.userId).catch(err => console.error(err));
-    challengeService.clearCacheById(ctx.instance.__data.challenged.userId).catch(err => console.error(err));
-
-    next();
-
-  });
-
   Challenge.beforeRemote('create', function(ctx, challenge, next) {
 
     ctx.req.body.challenger = {};
@@ -70,7 +60,7 @@ module.exports = function(Challenge) {
     });
     */
     setIdentity(ctx.req.body.challenger)
-      .then(body => setIdentity(ctx.req.body.challenged))
+      .then(() => setIdentity(ctx.req.body.challenged))
       .then(() => next())
       .catch(err => next(err));
 
@@ -229,7 +219,7 @@ module.exports = function(Challenge) {
 
   Challenge.sort = function(userId, cb) {
 
-    if (!cb) cb = () => null
+    if (!cb) cb = () => null;
 
     challengeService.getByUserId(userId)
       .then(challenges => cb(null, sortChallenges(challenges)))

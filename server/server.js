@@ -1,7 +1,11 @@
 'use strict';
 
+const fs = require('fs');
+const _ = require('lodash');
 const path = require('path');
 const inspect = require('util').inspect;
+const fork = require('child_process').fork;
+const exec = require('child_process').exec;
 
 const loopback = require('loopback');
 const boot = require('loopback-boot');
@@ -17,27 +21,19 @@ const bodyParser = require('body-parser');
 const cookieParser = require('cookie-parser');
 const expressSession = require('express-session');
 
-const CronJob = require('cron').CronJob;
-
-const challengeReminderJob = require(path.join(__dirname, 'jobs', 'push-challenge-unfinished'));
-
 app.set('views', path.join(__dirname, '..', 'client', 'views'));
 app.set('view engine', 'pug');
 
 boot(app, __dirname, err => { if (err) throw err; });
 
 app.on('booted', function() {
-
   // access token is only available after boot
   app.middleware('auth', loopback.token({ model: app.models.accessToken, currentUserLiteral: 'me' }));
-
-  new CronJob('00 00 12,18 * * *', () => challengeReminderJob(app), null, true, 'America/New_York');
-
 });
 
 app.use(function (req, res, next) {
-  req._ramen = {};
   console.log(`request ${req.method} ${req.originalUrl}`);
+  req._ramen = {};
   next();
 });
 
@@ -52,7 +48,7 @@ require(path.join(__dirname, 'lib', './init-passport'))(app, passportConfigurato
 
 app.get('/signup', (req, res) => res.render('pages/signup'));
 
-app.get('/auth/account', ensureLoggedIn('/login'), function(req, res, next) {
+app.get('/auth/account', ensureLoggedIn('/login'), function(req, res) {
 
   if (req.session.device && req.session.device.uuid &&
     req.session.passport && req.session.passport.user)
@@ -117,8 +113,11 @@ app.post('/signup', function(req, res, next) {
   User.create(newUser, function(err, user) {
 
     if (err) {
+
       req.flash('error', err.message);
+
       return res.redirect('back');
+
     } else {
 
         req.login(user, function(err) {
@@ -203,13 +202,33 @@ app.get('/mobile/redirect/auth/:provider', function(req, res) {
 
 app.start = function() {
   return app.listen(function() {
-    app.emit('started');
-    let baseUrl = app.get('url').replace(/\/$/, '');
-    console.log('Web server listening at: %s', baseUrl);
-    if (app.get('loopback-component-explorer')) {
-      let explorerPath = app.get('loopback-component-explorer').mountPath;
-      console.log('Browse your REST API at %s%s', baseUrl, explorerPath);
+
+    console.log('\r\nTOP RAMEN - STARTING\r\n\r\n');
+
+    console.log(`started: server [${app.get('hostName')}:${app.get('port')}]`);
+
+    let mongoPid = _.attempt(() => fs.readFileSync('/var/lib/mongodb/mongod.lock'));
+
+    if (_.isError(mongoPid)) {
+      console.log('starting: mongodb');
+      exec('sudo mongod --config /etc/mongodb.conf --fork --smallfiles');
+      mongoPid = _.attempt(() => fs.readFileSync('/var/lib/mongodb/mongod.lock'));
     }
+
+    console.log(`started: mongodb [${mongoPid.toString().split('\n')[0]}]`);
+
+    fork(path.join(__dirname, 'listeners', 'mongodb-oplog'));
+    fork(path.join(__dirname, 'jobs', 'push-challenge-unfinished'));
+
+    app.emit('started');
+
+    process.on('exit', function() {
+      console.log('exiting: killing forked processes');
+      _.attempt(() => process.kill(fs.readFileSync(app.get('mongoDbOplogPid'))));
+      _.attempt(() => process.kill(fs.readFileSync(app.get('pushChallengeUnfinishedPid'))));
+      console.log('\r\nTOP RAMEN - EXITED\r\n');
+    });
+
   });
 };
 
