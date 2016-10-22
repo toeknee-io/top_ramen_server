@@ -40,6 +40,15 @@ module.exports = function(Challenge) {
 
   const challengeService = app._ramen.challengeService = new ChallengeService({ model: Challenge });
 
+  Challenge.observe('after save', function(ctx, next) {
+
+    challengeService.clearCacheById(ctx.instance.__data.challenger.userId).catch(err => console.error(err));
+    challengeService.clearCacheById(ctx.instance.__data.challenged.userId).catch(err => console.error(err));
+
+    next();
+
+  });
+
   Challenge.beforeRemote('create', function(ctx, challenge, next) {
 
     ctx.req.body.challenger = {};
@@ -111,28 +120,41 @@ module.exports = function(Challenge) {
 
     Challenge.findById(challengeId, function(err, model) {
 
-      if (model && model.status === 'finished') {
-        reqErr.status = 403;
-        reqErr.message = 'A finished challenge cannot be updated.';
-      }
-
-      if (!model) {
-        reqErr.status = 404;
-        reqErr.message = `Failed to find challenge with id ${challengeId}`;
-      }
+      let data = model || {};
 
       if (err) {
         reqErr.status = 500;
         reqErr.message = `Exception occurred while finding challenge: ${err}`;
       }
 
+      if (_.isEmpty(data)) {
+        reqErr.status = 404;
+        reqErr.message = `Failed to find challenge with id ${challengeId}`;
+      }
+
+      if (data.status === 'finished') {
+        reqErr.status = 403;
+        reqErr.message = 'A finished challenge cannot be updated.';
+      }
+
+      let player;
+
+      if (data.challenger && data.challenger.userId)
+        player = data.challenger.userId === userId ?
+          'challenger' : 'challenged';
+
+      if (!player) {
+        reqErr.status = 404;
+        reqErr.message = 'Could not find the player that submitted this update.';
+      }
+
+      if (data[player].score !== null) {
+        reqErr.status = 403;
+        reqErr.message = 'This player has already played in this challenge.';
+      }
+
       if (!_.isEmpty(reqErr.message))
         return next(reqErr);
-
-      let data = model || {};
-
-      ctx.args.data = data;
-      ctx.req.body = data;
 
       if (!_.isEmpty(ramenId))
         data.ramenId = ramenId;
@@ -140,14 +162,16 @@ module.exports = function(Challenge) {
       if (score) {
         app.models.score.findOrCreate({ where: { challengeId: challengeId, userId: userId } }, { challengeId: challengeId, userId: userId, score: score }, (err, score, created) => {
           if (err) console.error(err);
-          if (!created) reqErr.message = 'This player has already played in this challenge.';
         });
       }
 
-      data[data.challenger.userId === userId ? 'challenger' : 'challenged'].score = score;
+      data[player].score = score;
 
       let rScore = data.challenger.score;
       let dScore = data.challenged.score;
+
+      ctx.args.data = data;
+      ctx.req.body = data;
 
       if (_.isEmpty(status)) {
 

@@ -75,8 +75,8 @@ class TopRamenService {
       memcached.del(`${this.nameSpace}:${id}`, err => {
         if (err) reject(err);
         else {
-          resolve();
           console.log(`cleared cache for ${this.nameSpace}:${id}`);
+          resolve();
         }
       });
     });

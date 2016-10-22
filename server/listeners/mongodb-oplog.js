@@ -14,21 +14,31 @@ const oplog = MongoOplog('mongodb://52.34.61.128:27017/topRamen').tail();
 
 oplog.on('op', data => {
 
-  if (!data.ns) return;
+  try {
 
-  let cacheNs = data.ns.split('.')[1];
+    let obj = data.o;
 
-  if (cacheNs === 'user') {
-    userService.clearCacheById(data.o._id.toString()).catch(err => console.error(err));
-  }
+    if (!data.ns) return;
 
-  if (cacheNs === 'challenge') {
-    challengeService.clearCacheById(data.o.challenger.userId).catch(err => console.error(err));
-    challengeService.clearCacheById(data.o.challenged.userId).catch(err => console.error(err));
-  }
+    let cacheNs = data.ns.split('.')[1];
 
-  if (cacheNs === 'userIdentity') {
-    identityService.clearCacheById(data.o._id.toString()).catch(err => console.error(err));
+    if (cacheNs === 'user') {
+      userService.clearCacheById(obj._id.toString()).catch(err => console.error(err));
+    }
+
+    if (cacheNs === 'challenge') {
+      if (obj.challenger && obj.challenger.userId)
+        challengeService.clearCacheById(obj.challenger.userId).catch(err => console.error(err));
+      if (obj.challenged && obj.challenged.userId)
+        challengeService.clearCacheById(obj.challenged.userId).catch(err => console.error(err));
+    }
+
+    if (cacheNs === 'userIdentity') {
+      identityService.clearCacheById(obj._id.toString()).catch(err => console.error(err));
+    }
+
+  } catch (err) {
+    console.error(err);
   }
 
 });
