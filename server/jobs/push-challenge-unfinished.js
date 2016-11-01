@@ -8,7 +8,7 @@ const app = require(path.join(__dirname, '..', 'server'));
 
 exports.startJob = function(app) {
 
-  console.log('started: cron job [push-challenge-unfinished]');
+  console.log('started: cron job (name: push-challenge-unfinished)');
 
   function sendNotification(userId, challenge) {
 

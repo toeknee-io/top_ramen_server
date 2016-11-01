@@ -2,13 +2,28 @@
 
 const inspect = require('util').inspect;
 
-module.exports = function(Installation) {
+module.exports = function installationModelExtensions(Installation) {
+  Installation.observe('before delete', (ctx, next) => {
+    console.log(`unregistered installation where ${inspect(ctx.where)}`);
 
-  Installation.observe('after delete', function(ctx, next) {
+    Installation.find({ where: { deviceToken: ctx.where.deviceToken.inq[0] } },
+      (err, installations) => {
+        installations.forEach((installation) => {
+          if (err) {
+            console.error(err);
+          } else if (installation) {
+            Object.assign(installation, { status: 'unregistered' });
+            Installation.upsert(installation,
+              (upsertErr) => { if (upsertErr) console.error(err); }
+            );
+          }
+        });
+      }
+    );
 
-    console.log(`deleted installation where ${inspect(ctx.where)}`);
-    next();
+    const err = new Error('No Installation deletes allowed!');
+    err.status = 403;
 
+    next(err);
   });
-
 };

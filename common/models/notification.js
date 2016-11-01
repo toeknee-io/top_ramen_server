@@ -18,15 +18,6 @@ module.exports = function(notification) {
           return cb(err, null);
         }
 
-        let actions = [];
-
-        if (data.challenge.status === 'new') {
-          actions = [
-            { "title": "Accept", "callback": "pushActions.acceptChallenge" },
-            { "title": "Decline", "callback": "pushActions.declineChallenge" }
-          ];
-        }
-
         user.__data.installations.forEach( function(installation) {
 
           if (installation.status === 'active') {
@@ -38,7 +29,7 @@ module.exports = function(notification) {
               title: data.alert.title,
               body: data.alert.body,
               click_action: 'MAIN',
-              actions: actions,
+              actions: data.actions,
               challenge: data.challenge
             });
 

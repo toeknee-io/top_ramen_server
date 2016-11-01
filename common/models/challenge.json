@@ -35,10 +35,20 @@
         }
       }
     },
+    "ramenId" : {
+      "type": "string",
+      "required": true,
+      "default": "spicy_chicken"
+    },
     "status": {
       "type": "string",
       "required": true,
       "default": "new"
+    },
+    "hidden": {
+      "type": "boolean",
+      "required": true,
+      "default": false
     },
     "winner": {
       "type": "string"
@@ -46,16 +56,14 @@
     "created": {
       "type": "date",
       "defaultFn": "now"
+    },
+    "modified": {
+      "type": "date"
     }
   },
+  "hidden": ["userId"],
   "validations": [],
-  "relations": {
-    "ramen": {
-      "type": "belongsTo",
-      "model": "ramen",
-      "foreignKey": "ramenId"
-    }
-  },
+  "relations": {},
   "acls": [],
   "methods": {}
 }

@@ -36,19 +36,6 @@
     "scope": ["email", "profile", "https://www.googleapis.com/auth/plus.login", "https://www.googleapis.com/auth/contacts", "https://www.googleapis.com/auth/plus.me", "https://www.googleapis.com/auth/plus.circles.read"],
     "failureFlash": true
   },
-  "twitter-login": {
-    "provider": "twitter",
-    "authScheme": "oauth",
-    "module": "passport-twitter",
-    "callbackURL": "/auth/twitter/callback",
-    "authPath": "/auth/twitter",
-    "callbackPath": "/auth/twitter/callback",
-    "successRedirect": "/auth/account?splash=false",
-    "failureRedirect": "/login",
-    "consumerKey": "{twitter-consumer-key}",
-    "consumerSecret": "{twitter-consumer-secret}",
-    "failureFlash": true
-  },
   "facebook-link": {
     "provider": "facebook",
     "module": "passport-facebook",
@@ -59,7 +46,7 @@
     "callbackPath": "/link/facebook/callback",
     "successRedirect": "/auth/account",
     "failureRedirect": "/login",
-    "scope": ["email", "user_likes"],
+    "scope": ["email", "user_friends", "public_profile"],
     "link": true,
     "failureFlash": true
   },

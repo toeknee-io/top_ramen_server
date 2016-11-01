@@ -7,7 +7,7 @@
     "validateUpsert": true
   },
   "properties": {
-    "type": {
+    "id": {
       "type": "string",
       "id": true
     }
