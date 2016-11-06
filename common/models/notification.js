@@ -1,88 +1,85 @@
 'use strict';
 
-let app = require('../../server/server');
+const app = require('../../server/server');
 
-module.exports = function(notification) {
+const includeInstallations = { include: ['installations'] };
+const pushEnabled = (app.get('pushEnabled'));
 
-    notification.notify = function(userId, data, cb) {
-
-      if (!cb) cb = () => null;
-
-      if (app.models.push.listenerCount('error') === 0)
+module.exports = (Notification) => {
+  const notify = (userId, data, cb = () => null) => {
+    if (pushEnabled) {
+      if (app.models.push.listenerCount('error') === 0) {
         app.models.push.on('error', err => console.error(err));
-
-      app.models.user.findById(userId, { include: ['installations'] }, function(err, user) {
-
+      }
+      app.models.user.findById(userId, includeInstallations, (err, user) => {
         if (err) {
           console.error(err);
-          return cb(err, null);
+          cb(err, null);
+        } else {
+          user.__data.installations.forEach((installation) => {
+            if (installation.status === 'active') {
+              /* eslint-disable new-cap */
+              const note = new app.models.notification({
+                expirationInterval: 86400, // Expire time in seconds (1 day)
+                deviceType: installation.deviceType,
+                deviceToken: installation.deviceToken,
+                title: data.alert.title,
+                body: data.alert.body,
+                click_action: 'MAIN',
+                actions: data.actions,
+                challenge: data.challenge,
+              });
+              /* eslint-enable new-cap */
+              console.log(`pushing notification [${data.alert.title}: ${data.alert.body}] to userId [${userId}]`);
+              app.models.push.notifyById(installation.id, note, (notifyErr) => {
+                if (notifyErr) {
+                  console.error(notifyErr);
+                  return cb(notifyErr, null);
+                }
+                return cb(null, data);
+              });
+            }
+          });
         }
-
-        user.__data.installations.forEach( function(installation) {
-
-          if (installation.status === 'active') {
-
-            let note = new app.models.notification({
-              expirationInterval: 86400, // Expire time in seconds (1 day)
-              deviceType: installation.deviceType,
-              deviceToken: installation.deviceToken,
-              title: data.alert.title,
-              body: data.alert.body,
-              click_action: 'MAIN',
-              actions: data.actions,
-              challenge: data.challenge
-            });
-
-            console.log(`pushing notification { ${data.alert.title}: ${data.alert.body} } to [${userId}]`);
-
-            app.models.push.notifyById(installation.id, note, function(err) {
-              if (err) {
-                console.error(err);
-                return cb(err, null);
-              }
-              return cb(null, data);
-            });
-
-          }
-
-        });
-
       });
+    } else {
+      console.log(`push.enabled is ${pushEnabled}`);
+    }
+  };
 
-    };
+  Object.assign(Notification, { notify });
 
-    notification.remoteMethod(
-      'notify',
-      {
-        description: "Send a notification to a device",
-        http: {
-          verb: "post",
-          status: 201,
-          path: "/:userId/notify"
-        },
-        accepts: [
-          {
-            arg: 'userId',
-            type: 'string',
-            http: {
-              source: 'path'
-            },
-            required: true
+  Notification.remoteMethod(
+    'notify',
+    {
+      description: 'Send a notification to a device',
+      http: {
+        verb: 'post',
+        status: 201,
+        path: '/:userId/notify',
+      },
+      accepts: [
+        {
+          arg: 'userId',
+          type: 'string',
+          http: {
+            source: 'path',
           },
-          {
-            arg: 'data',
-            type: 'notification',
-            http: {
-              source: 'body'
-            },
-            required: true
-          }
-        ],
-        returns: {
+          required: true,
+        },
+        {
+          arg: 'data',
           type: 'notification',
-          root: true
-        }
-      }
-    );
-
+          http: {
+            source: 'body',
+          },
+          required: true,
+        },
+      ],
+      returns: {
+        type: 'notification',
+        root: true,
+      },
+    }
+  );
 };

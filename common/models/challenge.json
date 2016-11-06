@@ -13,13 +13,19 @@
           "type": "string",
           "required": true
         },
-        "identities": [ "userIdentity" ],
+        "identities": [
+          "userIdentity"
+        ],
         "score": {
           "type": "number",
-          "required": true,
-          "default": null
+          "required": true
+        },
+        "hidden": {
+          "type": "boolean",
+          "default": false
         }
-      }
+      },
+      "required": true
     },
     "challenged": {
       "type": {
@@ -27,15 +33,26 @@
           "type": "string",
           "required": true
         },
-        "identities": [ "userIdentity" ],
+        "identities": [
+          "userIdentity"
+        ],
         "score": {
           "type": "number",
+          "required": true
+        },
+        "hidden": {
+          "type": "boolean",
+          "default": false
+        },
+        "inviteStatus": {
+          "type": "string",
           "required": true,
-          "default": null
+          "default": "pending"
         }
-      }
+      },
+      "required": true
     },
-    "ramenId" : {
+    "ramenId": {
       "type": "string",
       "required": true,
       "default": "spicy_chicken"
@@ -45,11 +62,6 @@
       "required": true,
       "default": "new"
     },
-    "hidden": {
-      "type": "boolean",
-      "required": true,
-      "default": false
-    },
     "winner": {
       "type": "string"
     },
@@ -58,10 +70,16 @@
       "defaultFn": "now"
     },
     "modified": {
-      "type": "date"
+      "type": "date",
+      "defaultFn": "now"
     }
   },
-  "hidden": ["userId"],
+  "hidden": [
+    "userId",
+    "score",
+    "created",
+    "modified"
+  ],
   "validations": [],
   "relations": {},
   "acls": [],

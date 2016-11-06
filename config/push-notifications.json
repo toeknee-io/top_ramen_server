@@ -1,0 +1,22 @@
+{
+  "actions": {
+    "acceptChallenge": {
+      "title": "Accept", "callback": "pushActions.acceptChallenge"
+    },
+    "challengeRematch": {
+      "title": "Rematch", "callback": "pushActions.challengeRematch"
+    },
+    "declineChallenge": {
+      "title": "Decline", "callback": "pushActions.declineChallenge"
+    },
+    "playChallenge": {
+      "title": "Play", "callback": "pushActions.playChallenge"
+    },
+    "viewChallenge": {
+      "title": "Challenge Others", "callback": "pushActions.viewChallenge"
+    },
+    "viewChallenges": {
+      "title": "View Challenges", "callback": "pushActions.viewChallenges"
+    }
+  }
+}

@@ -1,5 +1,6 @@
 'use strict';
 
+const _ = require('lodash');
 const TopRamenService = require('./base-service');
 
 class ChallengeService extends TopRamenService {
@@ -11,25 +12,28 @@ class ChallengeService extends TopRamenService {
   getByUserId(userId) {
     return new this.Promise((resolve, reject) => {
       const CACHE_KEY = `${this.nameSpace}:${userId}`;
-      const memcached = this.getMemcachedClient();
-
-      memcached.get(CACHE_KEY, (err, data) => {
-        if (err) {
-          reject(err);
-        } else if (data) {
+      this.getCache(CACHE_KEY).then((data) => {
+        if (data) {
+          console.info(`got ${CACHE_KEY} from cache`);
           resolve(data);
         } else {
           console.log(`getting ${CACHE_KEY} from database`);
-          this.model.find({ where: { or: [{ 'challenger.userId': userId }, { 'challenged.userId': userId }] } }, (findErr, challenges) => {
-            if (findErr) {
-              reject(findErr);
+          const query = { where: {
+            or: [{ 'challenger.userId': userId },
+            { 'challenged.userId': userId }] },
+          };
+          this.model.find(query, (err, challenges) => {
+            if (err) {
+              reject(err);
             } else {
               resolve(challenges);
-              this.setCacheById(userId, challenges).catch(cacheErr => console.error(cacheErr));
+              if (!_.isNil(challenges)) {
+                this.setCacheById(userId, challenges).catch(cacheErr => console.error(cacheErr));
+              }
             }
           });
         }
-      });
+      }).catch(err => reject(err));
     });
   }
 

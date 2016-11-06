@@ -2,7 +2,24 @@
   "name": "userIdentity",
   "plural": "userIdentities",
   "base": "UserIdentity",
-  "properties": {},
+  "properties": {
+    "profile": {
+      "type": {
+        "id": {
+          "type": "string",
+          "required": true
+        }
+      }
+    }
+  },
+  "hidden": [
+    "_id",
+    "authScheme",
+    "created",
+    "modified",
+    "profile._raw",
+    "profile._json"
+  ],
   "validations": [],
   "relations": {
     "user": {

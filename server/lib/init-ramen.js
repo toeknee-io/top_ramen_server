@@ -1,12 +1,12 @@
 'use strict';
 
 const path = require('path');
-const lodash = require("lodash");
+const _ = require('lodash');
 const winston = require('winston');
-const Promise = require("bluebird");
+const Promise = require('bluebird');
 const Memcached = require('memcached');
 
-const LOG_DIR = process.env.npm_package_config_logDir || path.join("..", "..");
+const LOG_DIR = process.env.npm_package_config_logDir || path.join('..', '..');
 
 Memcached.config.poolSize = 25;
 Memcached.config.timeout = 1000;
@@ -14,22 +14,34 @@ Memcached.config.maxExpiration = 2592000;
 
 const memcached = new Memcached('localhost');
 
-const logger = new winston.Logger({ transports: [ new winston.transports.Console(), new winston.transports.File({ filename:  `${LOG_DIR}/winston.log`}) ] });
+const logger = new winston.Logger({
+  transports: [new winston.transports.Console(), new winston.transports.File({ filename: `${LOG_DIR}/winston.log` })],
+});
 
-module.exports = function(app) {
+const _ramen = {};
 
-  app._ramen = {};
+let eventRegistered = false;
 
-  app.on('service:added', data => {
-    console.log('adding service', data.serviceName);
-    app._ramen[data.serviceName] = data.service;
-  });
+module.exports = (app) => {
+  Object.assign(app, { _ramen });
 
-  app._ramen.lodash = lodash;
-  app._ramen.promise = Promise;
-  app._ramen.memcached = memcached;
-  app._ramen.logger = logger;
+  if (!eventRegistered) {
+    app.on('service:added', ({ ns, service }) => {
+      const key = `${ns}Service`;
+
+      if (_.isNil(_ramen[key])) {
+        console.log(`adding ${key}`);
+        _ramen[key] = service;
+      }
+    });
+  }
+
+  eventRegistered = true;
+
+  _ramen._ = _;
+  _ramen.promise = Promise;
+  _ramen.memcached = memcached;
+  _ramen.logger = logger;
 
   return app;
-
 };

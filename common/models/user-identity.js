@@ -9,6 +9,8 @@ const IdentityService = require('../../server/services/identity');
 module.exports = function userIdentityModelExtensions(UserIdentity) {
   const identityService = app._ramen.identityService = new IdentityService({ model: UserIdentity });
 
+  app.emit('service:added', { ns: 'userIdentity', service: identityService });
+
   UserIdentity.observe('before save', (ctx, next) => {
     const userIdentity = ctx.data || ctx.instance || ctx.currentInstance;
     if (userIdentity.profile.provider === 'facebook') {
@@ -64,6 +66,8 @@ module.exports = function userIdentityModelExtensions(UserIdentity) {
         .then((identities) => {
           const result = _.castArray(identities);
           identityService.setCacheById(ctx.instance.userId, result)
+            .catch(err => console.error(err));
+          identityService.setCacheByKey(`identities:externalId:${ctx.instance.externalId}`, result)
             .catch(err => console.error(err));
         })
         .catch(err => console.error(err));

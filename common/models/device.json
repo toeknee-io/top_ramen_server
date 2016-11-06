@@ -2,14 +2,20 @@
   "name": "device",
   "plural": "devices",
   "base": "PersistedModel",
-  "idInjection": false,
+  "idInjection": true,
   "options": {
     "validateUpsert": true
   },
   "properties": {
     "deviceId": {
       "type": "string",
-      "id": true
+      "required": true,
+      "index": true
+    },
+    "userId": {
+      "type": "string",
+      "required": true,
+      "index": true
     },
     "deviceType": {
       "type": "string",
@@ -19,6 +25,10 @@
     "created": {
       "defaultFn": "now",
       "type": "date"
+    },
+    "modified": {
+      "type": "date",
+      "defaultFn": "now"
     }
   },
   "validations": [],
@@ -27,6 +37,23 @@
       "type": "belongsTo",
       "model": "user",
       "foreignKey": "userId"
+    }
+  },
+  "indexes": {
+    "deviceId_userId_index" : {
+      "keys": {
+         "deviceId": 1,
+         "userId": -1
+       },
+       "options": {
+         "unique": true
+       }
+    },
+    "deviceId_index" : {
+      "deviceId": -1
+    },
+    "userId_index" : {
+      "userId": -1
     }
   },
   "acls": [],

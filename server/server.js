@@ -1,9 +1,7 @@
-'use strict';
-
 const fs = require('fs');
 const _ = require('lodash');
 const path = require('path');
-const inspect = require('util').inspect;
+const io = require('socket.io');
 const fork = require('child_process').fork;
 const exec = require('child_process').exec;
 
@@ -29,15 +27,15 @@ app.set('view engine', 'pug');
 
 boot(app, __dirname, (err) => { if (err) console.error(err.stack); });
 
+if (!app.clientSockets) {
+  app.clientSockets = {};
+}
+
+app.getClientSocket = userId => app.clientSockets[userId];
+
 app.on('booted', () => {
   // access token is only available after boot
   app.middleware('auth', loopback.token({ model: app.models.accessToken, currentUserLiteral: 'me' }));
-});
-
-app.use((req, res, next) => {
-  console.log(`request ${req.method} ${req.originalUrl}`);
-  req._ramen = {};
-  next();
 });
 
 // setup middleware for request parsing and auth/session handling
@@ -47,48 +45,59 @@ app.middleware('parse', bodyParser.urlencoded({ extended: true }));
 app.middleware('session:before', cookieParser(app.get('cookieSecret')));
 app.middleware('session', expressSession({ secret: app.get('sessionSecret'), saveUninitialized: true, resave: true }));
 
-require(path.join(__dirname, 'lib', './init-passport'))(app, passportConfigurator);
+require('./lib/init-passport')(app, passportConfigurator);
 
-app.get('/api/constants', (req, res) => {
-  res.status(200).json(Constants);
+app.use((req, res, next) => {
+  console.log(`request ${req.method} ${req.originalUrl}`);
+  Object.assign(req, { ramen: {} });
+  next();
 });
 
 app.get('/signup', (req, res) => res.render('pages/signup'));
+app.get('/api/constants', (req, res) => res.status(200).json(Constants));
 
 app.get('/auth/account', ensureLoggedIn('/login'), (req, res) => {
-  if (req.session.device && req.session.device.uuid &&
-    req.session.passport && req.session.passport.user) {
-    app.models.device.findOrCreate({ where: { deviceId: req.session.device.uuid, userId: req.session.passport.user } },
-      { deviceId: req.session.device.uuid, deviceType: req.session.device.deviceType, userId: req.session.passport.user },
-      (err, device, created) => {
-        if (err || !device) {
-          console.error(err);
-          return res.status(500).json({ error: { name: 'AuthError', status: 500, message: `Failed to findOrCreate device record because ${err}` } });
-        }
+  const session = req.session;
+  const passport = session.passport;
+  const sDevice = session.device;
 
-        if (created && device.userId) {
-          console.log(`created and logged in new user: userId [${device.userId}] deviceType [${device.deviceType}] deviceId [${device.deviceId}] `);
-        }
+  if (sDevice && sDevice.uuid && passport && passport.user) {
+    const deviceId = sDevice.uuid;
+    const deviceType = sDevice.deviceType;
+    const userId = session.passport.user;
+    const whereFilter = { where: { deviceId, userId } };
 
-        app.models.user.findById(req.session.passport.user, (err, user) => {
-          req.login(user, (err) => {
-            if (err) {
-              console.error(err);
-              return res.redirect('back');
-            }
-
-            if (device.deviceType === 'android' || device.deviceType === 'ios') {
-              res.redirect(`/mobile/redirect/auth/success?token=${req.accessToken.id}&id=${req.session.passport.user}&`);
-            } else {
-              res.redirect('/');
-            }
-          });
+    app.models.device.findOrCreate(whereFilter, { deviceId, deviceType, userId }, (err, device) => {
+      if (err || !device) {
+        console.error(err);
+        res.status(500).json({
+          error: {
+            status: 500,
+            name: 'AuthError',
+            message: `Failed to findOrCreate device record because ${err}`,
+          },
         });
+      } else {
+        app.models.user.findById(passport.user, (findErr, user) => {
+          if (findErr) {
+            res.redirect('back');
+          } else {
+            req.login(user, (loginErr) => {
+              if (loginErr) {
+                console.error(loginErr);
+                res.redirect('back');
+              } else if (device.deviceType === 'android' || device.deviceType === 'ios') {
+                res.redirect(`/mobile/redirect/auth/success?token=${req.accessToken.id}&id=${passport.user}&`);
+              } else {
+                res.redirect('/');
+              }
+            });
+          }
+        });
+      }
     });
   } else {
-    console.error(`No device or user found in session ${inspect(req.session)}`);
-
-    res.status(500).json({ error: { name: 'AuthError', status: 50, message: 'No device or user found in session' } });
+    res.status(403).json({ error: { name: 'AuthError', status: 50, message: 'No device or user found in session' } });
   }
 });
 
@@ -108,16 +117,15 @@ app.post('/signup', (req, res, next) => {
   newUser.username = req.body.username.trim();
   newUser.password = req.body.password;
 
-  User.create(newUser, (err, user) => {
-    if (err) {
-      req.flash('error', err.message);
-
-      return res.redirect('back');
+  User.create(newUser, (createErr, user) => {
+    if (createErr) {
+      req.flash('error', createErr.message);
+      res.redirect('back');
     } else {
-      req.login(user, (err) => {
-        if (err) {
-          req.flash('error', err.message);
-          return res.redirect('back');
+      req.login(user, (loginErr) => {
+        if (loginErr) {
+          req.flash('error', loginErr.message);
+          res.redirect('back');
         }
           // return res.redirect('/auth/account');
       });
@@ -137,18 +145,17 @@ app.post('/signup', (req, res, next) => {
       user.verify(options, (err, response) => {
         if (err) {
           User.deleteById(user.id);
-          return next(err);
+          next(err);
+        } else {
+          console.log('/signup verification email sent:', response);
+          res.render('pages/local-success', {
+            title: 'Signed up successfully',
+            content: 'Please check your email and click on the verification link ' +
+                  'before logging in.',
+            redirectTo: '/login',
+            redirectToLinkText: 'Log in',
+          });
         }
-
-        console.log('/signup verification email sent:', response);
-
-        res.render('pages/local-success', {
-          title: 'Signed up successfully',
-          content: 'Please check your email and click on the verification link ' +
-                'before logging in.',
-          redirectTo: '/login',
-          redirectToLinkText: 'Log in',
-        });
       });
     }
   });
@@ -177,21 +184,25 @@ app.get('/mobile/redirect/auth/:provider', (req, res) => {
   let provider = req.params.provider;
 
   if (!req.session.device || !req.session.device.uuid) {
-    req.session.device = {};
+    Object.assign(req.session, { device: {} });
   }
 
   if (provider !== 'local') {
     provider = `auth/${provider}`;
   }
 
-  req.session.device.uuid = req.query.uuid;
-  req.session.device.deviceType = req.query.deviceType;
-  req.session.loginToken = req.query.token;
+  Object.assign(req.session, {
+    loginToken: req.query.token,
+  });
+  Object.assign(req.session.device, {
+    uuid: req.query.uuid,
+    deviceType: req.query.deviceType,
+  });
 
   res.redirect(`/${provider}`);
 });
 
-app.start = function () {
+app.start = function start() {
   return app.listen(() => {
     console.log('\r\nTOP RAMEN - STARTING\r\n\r\n');
 
@@ -218,7 +229,23 @@ app.start = function () {
       _.attempt(() => process.kill(fs.readFileSync(app.get('pushChallengeUnfinishedPid'))));
       console.log('\r\nTOP RAMEN - EXITED\r\n');
     });
+
+    return app;
   });
 };
 
-if (require.main === module) { app.start(); }
+if (require.main === module) {
+  app.io = io(app.start());
+
+  app.emit('io:listening', app.io);
+
+  app.io.on('connection', (socket) => {
+    socket.on('user:connected', (userId) => {
+      Object.assign(socket, { userId });
+      console.log(`user connected: ${socket.userId}`);
+      app.clientSockets[userId] = socket;
+      app.emit('socket:set', { userId, socket });
+    });
+    socket.on('disconnect', () => console.log(`user disconnected: ${socket.userId}`));
+  });
+}
